@@ -1,5 +1,4 @@
 fn main() {
-    // let input = read_input(TEST_INPUT);
     let input = read_input(include_str!("../../puzzle_inputs/day_01.txt"));
     let mut sums: Vec<u64> = input.iter().map(|nums| nums.iter().sum()).collect();
 
