@@ -26,7 +26,7 @@ fn compute_score_a(round: &(char, char)) -> u64 {
         'X' => 1,
         'Y' => 2,
         'Z' => 3,
-        c => unimplemented!("Unexpected play: {}", c),
+        c => unreachable!("Unexpected play: {}", c),
     };
 
     winner_score + choice_score
@@ -37,7 +37,7 @@ fn compute_score_b(round: &(char, char)) -> u64 {
         'X' => 0,
         'Y' => 3,
         'Z' => 6,
-        c => unimplemented!("Unexpected play: {}", c),
+        c => unreachable!("Unexpected play: {}", c),
     };
 
     let choice_score = match round {
