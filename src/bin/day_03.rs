@@ -1,15 +1,6 @@
 use itertools::Itertools;
 use std::collections::HashSet;
 
-static TEST_INPUT: &str = "
-vJrwpWtwJgWrhcsFMMfFFhFp
-jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL
-PmmdzqPrVvPwwTWBwg
-wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn
-ttgJtRGJQctTZtZT
-CrZsJsPPZsGzwwsLwLmpwMDw
-";
-
 fn main() {
     // Parse the input
     let input: Vec<&str> = include_str!("../../puzzle_inputs/day_03.txt")
@@ -18,8 +9,12 @@ fn main() {
         .lines()
         .collect();
 
-    // Solve puzzle a
-    let answer: u32 = input
+    println!("day 3a: {}", solve_a(&input));
+    println!("day 3b: {}", solve_b(&input));
+}
+
+fn solve_a(input: &[&str]) -> u32 {
+    input
         .iter()
         .map(|line| {
             let both_sacks: Vec<char> = line.chars().collect();
@@ -29,11 +24,11 @@ fn main() {
             let common_item = **sack_1.intersection(&sack_2).next().unwrap();
             priority(common_item)
         })
-        .sum();
-    println!("answer a: {}", answer);
+        .sum()
+}
 
-    // Solve puzzle b
-    let answer: u32 = input
+fn solve_b(input: &[&str]) -> u32 {
+    input
         .iter()
         .map(|line| line.chars().collect::<HashSet<char>>())
         .tuples()
@@ -42,11 +37,7 @@ fn main() {
             let item = sack_12.intersection(&sack_3).next().unwrap();
             priority(*item)
         })
-        .sum();
-    println!("answer: {}", answer);
-
-    // let input = parse_input(include_str!("../../puzzle_inputs/day_02.txt"));
-    // let input = parse_input(TEST_INPUT);
+        .sum()
 }
 
 fn priority(item: char) -> u32 {
@@ -56,8 +47,3 @@ fn priority(item: char) -> u32 {
         item => unreachable!("Unexpected item: {}", item),
     }
 }
-
-// fn parse_input(input: &str) -> Vec<(char, char)> {
-//     let re = Regex::new("(A|B|C) (X|Y|Z)").unwrap();
-//     parse_lines(re, input).collect()
-// }
