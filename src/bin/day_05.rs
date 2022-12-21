@@ -1,5 +1,5 @@
-// use aoc::parse_regex::parse_lines;
-// use regex::Regex;
+use aoc::parse_regex::parse_lines;
+use regex::Regex;
 use std::iter;
 
 static TEST_INPUT: &str = "
@@ -15,37 +15,44 @@ move 1 from 1 to 2
 ";
 
 fn main() {
-    // let re = Regex::new(r"(\d+)\-(\d+),(\d+)\-(\d+)").unwrap();
-    // let input = include_str!("../../puzzle_inputs/day_04.txt");
-    // let input: Vec<(usize, usize, usize, usize)> = parse_lines(re, input.trim()).collect();
-    let input = TEST_INPUT;
-    let (stacks, _instructions) = input.trim().split_once("\n\n").unwrap();
-    let mut stacks = stacks.lines().rev();
-    let first_line = stacks.next().unwrap();
-    println!("- {}", first_line);
-    let n_stacks = first_line.split("   ").count();
+    let input = include_str!("../../puzzle_inputs/day_05.txt");
+    // let input = TEST_INPUT;
+    let (stack_lines, instructions) = input.split_once("\n\n").unwrap();
+    let mut stack_lines = stack_lines.lines().rev();
+    let n_stacks = stack_lines.next().unwrap().split("   ").count();
     println!("n_stacks: {:?}", n_stacks);
-    let stacks: Vec<Vec<char>> = iter::repeat_with(Vec::new).take(n_stacks).collect();
+    let mut stacks: Vec<Vec<char>> = iter::repeat_with(Vec::new).take(n_stacks).collect();
 
     println!("stacks: {:?}", stacks);
 
-    // println!("- {}", line);
-    // });
-    println!("That's all!");
+    for line in stack_lines {
+        println!("- \"{}\"", line);
+        for (c, stack) in line.chars().skip(1).step_by(4).zip(&mut stacks) {
+            if c != ' ' {
+                stack.push(c);
+            }
+        }
+    }
+    println!("That's all! {:?}", stacks);
 
-    //     println!(
-    //         "day 4a: {}",
-    //         input
-    //             .iter()
-    //             .filter(|(a1, a2, b1, b2)| (a1 <= b1 && a2 >= b2) || (b1 <= a1 && b2 >= a2))
-    //             .count()
-    //     );
+    println!("instructions:\n{}", instructions);
+    let re = Regex::new(r"move (\d+) from (\d+) to (\d+)").unwrap();
+    let instructions: Vec<(usize, usize, usize)> = parse_lines(re, instructions).collect();
 
-    //     println!(
-    //         "day 4b: {}",
-    //         input
-    //             .iter()
-    //             .filter(|(a1, a2, b1, b2)| a2 >= b1 && b2 >= a1)
-    //             .count()
-    //     );
+    println!("day 5a: {}", solve_a(&stacks, &instructions));
+}
+
+fn solve_a(stacks: &[Vec<char>], instructions: &Vec<(usize, usize, usize)>) -> String {
+    let mut stacks = Vec::from(stacks);
+    for (n_items, from_stack, to_stack) in instructions {
+        println!("{} items : {} -> {}", n_items, from_stack, to_stack);
+        for _ in 0..*n_items {
+            let item = stacks[from_stack - 1].pop().unwrap();
+            stacks[to_stack - 1].push(item);
+            println!("Now: {:?}", stacks);
+        }
+    }
+
+    // The final solution
+    stacks.iter().map(|stack| stack.last().unwrap()).collect()
 }
