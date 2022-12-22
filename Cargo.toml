@@ -10,3 +10,4 @@ path = "src/lib.rs"
 [dependencies]
 regex = "1.7.0"
 itertools = "0.10.5"
+ndarray = "0.15.6"
