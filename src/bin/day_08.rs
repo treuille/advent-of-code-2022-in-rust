@@ -9,7 +9,8 @@ fn main() {
 }
 
 fn solve_a(trees: &Array2<u8>) -> usize {
-    // Fill in a visibility array by iterating over rows and colums, forward and backwards.
+    // Fill in a visibility array by iterating over rows and colums,
+    // forward and backwards.
     let mut visible = Array2::<bool>::default(trees.dim());
     for (axis, reversed) in [Axis(0), Axis(1)].into_iter().zip([false, true]) {
         for (tree_lane, mut vis_lane) in trees.lanes(axis).into_iter().zip(visible.lanes_mut(axis))
@@ -48,17 +49,22 @@ fn solve_b(trees: &Array2<u8>) -> usize {
         Box::new(|(x, y)| x.checked_add(1).map(|x| (x, y))), // right
         Box::new(|(x, y)| y.checked_add(1).map(|y| (x, y))), // down
     ];
+
+    // Iterate through every grid cell, calculating the scenic score.
     trees
         .indexed_iter()
         .map(|(pos, &height)| {
             directions
                 .iter()
                 .map(|dir_fn| {
+                    // This function advacnes one grid cell at a time, pikcing up
+                    // tree heights from the grida, and preventing going off the grid.
                     let traverse = |&(pos, _): &(Pt, u8)| -> Option<(Pt, u8)> {
                         dir_fn(pos).and_then(|pos2| trees.get(pos2).map(|&height2| (pos2, height2)))
                     };
 
-                    // This iterator traverses the grid so long as trees are strictly shorter than `height`.
+                    // This iterator traverses the grid so long as trees are
+                    // strictly shorter than `height`.
                     iter::successors(traverse(&(pos, height)), |&(pos2, height2)| {
                         (height2 < height)
                             .then_some(&(pos2, height2))
