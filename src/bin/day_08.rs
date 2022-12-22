@@ -57,8 +57,8 @@ fn solve_b(trees: &Array2<u8>) -> usize {
             directions
                 .iter()
                 .map(|dir_fn| {
-                    // This function advacnes one grid cell at a time, pikcing up
-                    // tree heights from the grida, and preventing going off the grid.
+                    // This function advances one grid cell at a time, picking up
+                    // tree heights from the grid while preventing going off the grid.
                     let traverse = |&(pos, _): &(Pt, u8)| -> Option<(Pt, u8)> {
                         dir_fn(pos).and_then(|pos2| trees.get(pos2).map(|&height2| (pos2, height2)))
                     };
