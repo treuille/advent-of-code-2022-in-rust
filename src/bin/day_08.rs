@@ -13,11 +13,11 @@ const TEST_INPUT: &str = "
 ";
 
 fn main() {
-    // let input = include_str!("../../puzzle_inputs/day_07.txt");
-    println!("{}", TEST_INPUT.trim());
-    let input: Vec<&str> = TEST_INPUT.trim().lines().collect();
-    let rows = input.len();
-    let input = input
+    let input = include_str!("../../puzzle_inputs/day_08.txt");
+    // println!("{}", TEST_INPUT.trim());
+    let input_lines: Vec<&str> = input.trim().lines().collect();
+    let rows = input_lines.len();
+    let input = input_lines
         .iter()
         .flat_map(|line| line.chars().filter_map(|c| String::from(c).parse().ok()))
         .collect::<Array1<u8>>();
@@ -35,26 +35,24 @@ fn main() {
         {
             // Iterate forward
             let mut pair_iter = tree_lane.iter().zip(vis_lane.iter_mut());
-            let (mut last_tree, last_vis) = pair_iter.next().unwrap();
-            *last_vis = true;
-            for (next_tree, next_vis) in pair_iter {
-                if next_tree <= last_tree {
-                    break;
+            let (mut max_height, edge_vis) = pair_iter.next().unwrap();
+            *edge_vis = true;
+            for (tree, vis) in pair_iter {
+                if tree > max_height {
+                    *vis = true;
+                    max_height = tree;
                 }
-                *next_vis = true;
-                last_tree = next_tree;
             }
 
             // Iterate backwards
             let mut pair_iter = tree_lane.iter().rev().zip(vis_lane.iter_mut().rev());
-            let (mut last_tree, last_vis) = pair_iter.next().unwrap();
-            *last_vis = true;
-            for (next_tree, next_vis) in pair_iter {
-                if next_tree <= last_tree {
-                    break;
+            let (mut max_height, edge_vis) = pair_iter.next().unwrap();
+            *edge_vis = true;
+            for (tree, vis) in pair_iter {
+                if tree > max_height {
+                    *vis = true;
+                    max_height = tree;
                 }
-                *next_vis = true;
-                last_tree = next_tree;
             }
         }
     }
