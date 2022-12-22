@@ -1,20 +1,78 @@
-// use std::cell::RefCell;
-// use std::collections::HashMap;
-// use std::ops::Deref;
-// use std::rc::Rc;
 use ndarray::{Array1, Array2, Axis};
-
-const TEST_INPUT: &str = "
-30373
-25512
-65332
-33549
-35390
-";
+use std::iter;
 
 fn main() {
-    let input = include_str!("../../puzzle_inputs/day_08.txt");
-    // println!("{}", TEST_INPUT.trim());
+    let trees = parse_input(include_str!("../../puzzle_inputs/day_08.txt"));
+
+    println!("day 8a: {} (1789)", solve_a(&trees));
+    println!("day 8b: {} (314820)", solve_b(&trees));
+}
+
+fn solve_a(trees: &Array2<u8>) -> usize {
+    // Fill in a visibility array by iterating over rows and colums, forward and backwards.
+    let mut visible = Array2::<bool>::default(trees.dim());
+    for (axis, reversed) in [Axis(0), Axis(1)].into_iter().zip([false, true]) {
+        for (tree_lane, mut vis_lane) in trees.lanes(axis).into_iter().zip(visible.lanes_mut(axis))
+        {
+            let mut tree_lane: Vec<&u8> = tree_lane.iter().collect();
+            let mut vis_lane: Vec<&mut bool> = vis_lane.iter_mut().collect();
+            if reversed {
+                tree_lane.reverse();
+                vis_lane.reverse();
+            }
+            let mut pair_iter = tree_lane.into_iter().zip(vis_lane.into_iter());
+            let (edge_height, edge_vis) = pair_iter.next().unwrap();
+            let mut max_height: u8 = *edge_height;
+            *edge_vis = true;
+            for (height, vis) in pair_iter {
+                if *height > max_height {
+                    *vis = true;
+                    max_height = *height;
+                }
+            }
+        }
+    }
+    visible.map(|b| *b as usize).sum()
+}
+
+fn solve_b(trees: &Array2<u8>) -> usize {
+    // A point on the grid.
+    type Pt = (usize, usize);
+
+    // For each compass direction, these functions advance one grid cell, preventing
+    // usize underflow or overflow.
+    type DirFn = Box<dyn Fn(Pt) -> Option<Pt>>;
+    let directions: [DirFn; 4] = [
+        Box::new(|(x, y)| x.checked_sub(1).map(|x| (x, y))), // up
+        Box::new(|(x, y)| y.checked_sub(1).map(|y| (x, y))), // left
+        Box::new(|(x, y)| x.checked_add(1).map(|x| (x, y))), // right
+        Box::new(|(x, y)| y.checked_add(1).map(|y| (x, y))), // down
+    ];
+    trees
+        .indexed_iter()
+        .map(|(pos, &height)| {
+            directions
+                .iter()
+                .map(|dir_fn| {
+                    let traverse = |&(pos, _): &(Pt, u8)| -> Option<(Pt, u8)> {
+                        dir_fn(pos).and_then(|pos2| trees.get(pos2).map(|&height2| (pos2, height2)))
+                    };
+
+                    // This iterator traverses the grid so long as trees are strictly shorter than `height`.
+                    iter::successors(traverse(&(pos, height)), |&(pos2, height2)| {
+                        (height2 < height)
+                            .then_some(&(pos2, height2))
+                            .and_then(traverse)
+                    })
+                    .count()
+                })
+                .product()
+        })
+        .max()
+        .unwrap()
+}
+
+fn parse_input(input: &str) -> Array2<u8> {
     let input_lines: Vec<&str> = input.trim().lines().collect();
     let rows = input_lines.len();
     let input = input_lines
@@ -22,59 +80,5 @@ fn main() {
         .flat_map(|line| line.chars().filter_map(|c| String::from(c).parse().ok()))
         .collect::<Array1<u8>>();
     let cols = input.len() / rows;
-    let trees = input.into_shape((rows, cols)).unwrap();
-    println!("trees: {:?}", trees);
-
-    // Create a visibility array
-    let mut visible = Array2::<bool>::default((rows, cols));
-    println!("visible: {:?}", visible);
-
-    for axis in [Axis(0), Axis(1)] {
-        println!("axis: {:?}", axis);
-        for (tree_lane, mut vis_lane) in trees.lanes(axis).into_iter().zip(visible.lanes_mut(axis))
-        {
-            // Iterate forward
-            let mut pair_iter = tree_lane.iter().zip(vis_lane.iter_mut());
-            let (mut max_height, edge_vis) = pair_iter.next().unwrap();
-            *edge_vis = true;
-            for (tree, vis) in pair_iter {
-                if tree > max_height {
-                    *vis = true;
-                    max_height = tree;
-                }
-            }
-
-            // Iterate backwards
-            let mut pair_iter = tree_lane.iter().rev().zip(vis_lane.iter_mut().rev());
-            let (mut max_height, edge_vis) = pair_iter.next().unwrap();
-            *edge_vis = true;
-            for (tree, vis) in pair_iter {
-                if tree > max_height {
-                    *vis = true;
-                    max_height = tree;
-                }
-            }
-        }
-    }
-
-    println!("trees: {:?}", trees);
-    println!("visible: {:?}", visible);
-    println!(
-        "visible sum: {:?}",
-        visible.iter().filter_map(|b| b.then_some(())).count()
-    );
-    // let traversals = [
-    //     Box::new(trees.rows().zip(visible.rows_mut()))
-    // let input_lines = input.lines();
-    // let root = Path::parse_input(input_lines);
-
-    // // Solve a
-    // let (total_size, total_size_list) = root.deref().borrow_mut().total_sizes();
-    // let answer_a: usize = total_size_list.iter().filter(|x| **x <= 100000).sum();
-    // println!("day 7a: {} (1350966)", answer_a);
-
-    // // Solve b
-    // let must_free = total_size - 40000000;
-    // let answer_b = total_size_list.iter().filter(|x| **x >= must_free).min();
-    // println!("day 7b: {} (6296435)", answer_b.unwrap());
+    input.into_shape((rows, cols)).unwrap()
 }
