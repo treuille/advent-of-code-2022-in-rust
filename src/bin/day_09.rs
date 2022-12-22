@@ -1,4 +1,5 @@
 use aoc::parse_regex::parse_lines;
+use itertools::Itertools;
 use regex::Regex;
 use std::iter;
 
@@ -15,7 +16,8 @@ R 2
 
 fn main() {
     // Parse the input
-    let input = TEST_INPUT;
+    // let input = TEST_INPUT;
+    let input = include_str!("../../puzzle_inputs/day_09.txt");
     let re = Regex::new(r"(L|R|U|D) (\d+)").unwrap();
     let input = parse_lines(re, input);
 
@@ -25,8 +27,12 @@ fn main() {
     //     println!("{} {}", direction, count);
     // }
 
-    let initial_conditions = (0, 0, 0, 0);
-    [initial_conditions]
+    type Pt = (isize, isize);
+    let add = |pt1: Pt, pt2: Pt| (pt1.0 + pt2.0, pt1.1 + pt2.1);
+    let sub = |pt1: Pt, pt2: Pt| (pt1.0 - pt2.0, pt1.1 - pt2.1);
+
+    let initial_conditions: Vec<Pt> = iter::repeat((0, 0)).take(2).collect();
+    let answer = [initial_conditions.clone()]
         .into_iter()
         .chain(
             input
@@ -40,42 +46,73 @@ fn main() {
                     })
                     .take(count)
                 })
-                .scan(
-                    initial_conditions,
-                    |(head_x, head_y, tail_x, tail_y), (delta_x, delta_y)| {
-                        *head_x += delta_x;
-                        *head_y += delta_y;
-                        *tail_x += match *head_x - *tail_x {
-                            2 => 1,
-                            -2 => -1,
-                            -1..=1 => 0,
-                            _ => panic!("xs too distant: {} and {}", *head_x, *tail_x),
+                .scan(initial_conditions, |rope, (head_dx, head_dy)| {
+                    rope[0] = add(rope[0], (head_dx, head_dy));
+                    for (i, j) in (0..).zip(1..rope.len()) {
+                        let (dx, dy) = match sub(rope[i], rope[j]) {
+                            (-2, -2) => (-1, -1),
+                            (-2, -1) => (-1, -1),
+                            (-2, 0) => (-1, 0),
+                            (-2, 1) => (-1, 1),
+                            (-2, 2) => (-1, 1),
+
+                            (2, -2) => (1, -1),
+                            (2, -1) => (1, -1),
+                            (2, 0) => (1, 0),
+                            (2, 1) => (1, 1),
+                            (2, 2) => (1, 1),
+
+                            // (-2, -2) => (-1, -1),
+                            (-1, -2) => (-1, -1),
+                            (0, -2) => (0, -1),
+                            (1, -2) => (1, -1),
+                            // (2, -2) => (1, -1),
+
+                            // (-2, 2) => (-1, 1),
+                            (-1, 2) => (-1, 1),
+                            (0, 2) => (0, 1),
+                            (1, 2) => (1, 1),
+                            // (2, 2) => (1, 1),
+                            _ => (0, 0),
                         };
-                        *tail_y += match *head_y - *tail_y {
-                            2 => 1,
-                            -2 => -1,
-                            -1..=1 => 0,
-                            _ => panic!("ys too distant: {} and {}", *head_x, *tail_x),
-                        };
-                        Some((*head_x, *head_y, *tail_x, *tail_y))
-                    },
-                ),
+                        rope[j] = add(rope[j], (dx, dy));
+                        // + *tail_x += dx;
+                        // *tail_y += dy
+                    }
+                    // *rope[0].1 += head_dy;
+                    Some(rope.clone())
+                }),
         )
-        .for_each(|(head_x, head_y, tail_x, tail_y)| {
-            for y in (0..=5).rev() {
-                for x in 0..=5 {
-                    print!(
-                        "{}",
-                        match (x, y) {
-                            pt if pt == (head_x, head_y) => "H",
-                            pt if pt == (tail_x, tail_y) => "T",
-                            (0, 0) => "s",
-                            _ => ".",
-                        }
-                    );
-                }
-                println!();
-            }
-            println!();
-        });
+        .map(|rope| {
+            // for y in (0..=4).rev() {
+            //     for x in 0..=5 {
+            //         let mut rope_here = false;
+            //         for (i, (rope_x, rope_y)) in rope.iter().enumerate() {
+            //             if (x, y) == (*rope_x, *rope_y) {
+            //                 if i == 0 {
+            //                     print!("H");
+            //                 } else {
+            //                     print!("{}", i);
+            //                 }
+            //                 rope_here = true;
+            //                 break;
+            //             }
+            //         }
+            //         if !rope_here {
+            //             if (x, y) == (0, 0) {
+            //                 print!("S");
+            //             } else {
+            //                 print!(".");
+            //             }
+            //         }
+            //     }
+            //     println!();
+            // }
+            // println!();
+            rope.last().unwrap().clone()
+        })
+        .unique()
+        .count();
+
+    println!("answer: {}", answer);
 }
