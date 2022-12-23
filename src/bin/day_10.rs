@@ -27,18 +27,17 @@ fn solve_b(register_vals: &[i32]) {
     // Creat the CRT display.
     const WIDTH: usize = 40;
     const N_PIXELS: usize = WIDTH * 6;
-    let mut crt = [false; N_PIXELS];
+    let mut crt = ['.'; N_PIXELS];
 
     // Run the simulation.
     let register_vals = iter::once(&1).chain(register_vals.iter());
     for (cycle, &sprite_pos) in register_vals.enumerate() {
         if (((cycle % WIDTH) as i32) - sprite_pos).abs() <= 1 {
-            crt[cycle % N_PIXELS] = true;
+            crt[cycle % N_PIXELS] = '#';
         }
     }
 
     // Print out the CRT.
-    let crt = crt.map(|pixel| if pixel { '#' } else { '.' });
     crt.chunks(WIDTH)
         .for_each(|row| println!("{}", row.iter().collect::<String>()));
 }
