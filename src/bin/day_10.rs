@@ -32,7 +32,7 @@ fn solve_b(register_vals: &[i32]) {
     // Run the simulation.
     let register_vals = iter::once(&1).chain(register_vals.iter());
     for (cycle, &sprite_pos) in register_vals.enumerate() {
-        if ((((cycle) % WIDTH) as i32) - sprite_pos).abs() <= 1 {
+        if (((cycle % WIDTH) as i32) - sprite_pos).abs() <= 1 {
             crt[cycle % N_PIXELS] = true;
         }
     }
