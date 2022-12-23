@@ -46,8 +46,8 @@ fn solve_b(trees: &Array2<u8>) -> usize {
     let directions: [DirFn; 4] = [
         Box::new(|(x, y)| x.checked_sub(1).map(|x| (x, y))), // up
         Box::new(|(x, y)| y.checked_sub(1).map(|y| (x, y))), // left
-        Box::new(|(x, y)| x.checked_add(1).map(|x| (x, y))), // right
-        Box::new(|(x, y)| y.checked_add(1).map(|y| (x, y))), // down
+        Box::new(|(x, y)| x.checked_add(1).map(|x| (x, y))), // down
+        Box::new(|(x, y)| y.checked_add(1).map(|y| (x, y))), // right
     ];
 
     // Iterate through every grid cell, calculating the scenic score.
