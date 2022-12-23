@@ -1,24 +1,27 @@
-use std::fmt::Debug;
+use itertools::Itertools;
+use std::collections::VecDeque;
 
-#[derive(Debug)]
+#[derive(Clone)]
 struct Monkey {
-    items: Vec<u32>,
+    items: VecDeque<u64>,
     operation: Operation,
-    test_modulus: u32,
-    true_monkey: u32,
-    false_monkey: u32,
+    modulus: u64,
+    true_recipient: usize,
+    false_recipient: usize,
+    inspected: usize,
 }
 
-#[derive(Debug)]
+#[derive(Clone)]
 enum Operation {
     Squared,
-    Times(u32),
-    Plus(u32),
+    Times(u64),
+    Plus(u64),
 }
 
 impl Monkey {
     fn from_str(s: &str) -> Self {
         let skip = |s: &str, prefix: &str| s.split_once(prefix).unwrap().1.to_owned();
+
         let lines: Vec<&str> = s.lines().collect();
 
         Self {
@@ -36,52 +39,52 @@ impl Monkey {
                     operation => panic!("Unkown operation: {:?}", operation),
                 }
             },
-            test_modulus: skip(lines[3], "divisible by ").parse().unwrap(),
-            true_monkey: skip(lines[4], "monkey ").parse().unwrap(),
-            false_monkey: skip(lines[5], "monkey ").parse().unwrap(),
+
+            modulus: skip(lines[3], "divisible by ").parse().unwrap(),
+            true_recipient: skip(lines[4], "monkey ").parse().unwrap(),
+            false_recipient: skip(lines[5], "monkey ").parse().unwrap(),
+            inspected: 0,
         }
     }
 }
 
 fn main() {
-    // let input = include_str!("../../puzzle_inputs/day_10.txt");
-    let monkeys: Vec<Monkey> = TEST_INPUT
-        .trim()
-        .split("\n\n")
-        .map(Monkey::from_str)
-        .collect();
-    for (i, monkey) in monkeys.iter().enumerate() {
-        println!("Monkey {}: {:?}\n", i, monkey);
-    }
-    // println!("Hello day 11");
+    let input = include_str!("../../puzzle_inputs/day_11.txt");
+    let monkeys: Vec<Monkey> = input.trim().split("\n\n").map(Monkey::from_str).collect();
+
+    println!("day 11a: {} (316888)", solve(monkeys.clone(), 20, 3));
+    println!("day 11a: {} (35270398814)", solve(monkeys, 10000, 1));
 }
 
-const TEST_INPUT: &str = "
-Monkey 0:
-  Starting items: 79, 98
-  Operation: new = old * 19
-  Test: divisible by 23
-    If true: throw to monkey 2
-    If false: throw to monkey 3
+fn solve(mut monkeys: Vec<Monkey>, n_rounds: usize, worry_cooldown: u64) -> usize {
+    let modulus: u64 = monkeys.iter().map(|m| m.modulus).product::<u64>() * worry_cooldown;
 
-Monkey 1:
-  Starting items: 54, 65, 75, 74
-  Operation: new = old + 6
-  Test: divisible by 19
-    If true: throw to monkey 2
-    If false: throw to monkey 0
+    for _ in 0..n_rounds {
+        for i in 0..monkeys.len() {
+            monkeys[i].inspected += monkeys[i].items.len();
+            while let Some(item) = monkeys[i].items.pop_front() {
+                let item = match monkeys[i].operation {
+                    Operation::Squared => item * item,
+                    Operation::Times(num) => item * num,
+                    Operation::Plus(num) => item + num,
+                };
 
-Monkey 2:
-  Starting items: 79, 60, 97
-  Operation: new = old * old
-  Test: divisible by 13
-    If true: throw to monkey 1
-    If false: throw to monkey 3
+                let item = (item / worry_cooldown) % modulus;
 
-Monkey 3:
-  Starting items: 74
-  Operation: new = old + 3
-  Test: divisible by 17
-    If true: throw to monkey 0
-    If false: throw to monkey 1
-";
+                let recipient = match item % monkeys[i].modulus {
+                    0 => monkeys[i].true_recipient,
+                    _ => monkeys[i].false_recipient,
+                };
+                monkeys[recipient].items.push_back(item);
+            }
+        }
+    }
+
+    monkeys
+        .iter()
+        .map(|m| m.inspected)
+        .sorted()
+        .rev()
+        .take(2)
+        .product()
+}
