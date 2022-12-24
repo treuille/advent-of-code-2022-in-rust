@@ -1,33 +1,50 @@
-// use aoc::grid::{neighbors, parse_char_grid};
-// use core::cmp::Reverse;
-// use ndarray::Array2;
-// use std::collections::BinaryHeap;
-// use std::convert::identity;
+use std::cmp::Ordering;
 
-use std::cmp::{Ord, Ordering};
-// use std::iter;
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Packet {
     Num(u32),
     List(Vec<Packet>),
 }
 
-// impl PartialEq<Self> for Packet {
-//     fn eq(&self, _: &Self) -> bool {
-//         todo!("Need to implement PartialEq for Packet");
-//     }
-// }
+fn main() {
+    let input = include_str!("../../puzzle_inputs/day_13.txt");
 
-// impl PartialOrd<Self> for Packet {
-//     fn partial_cmp(&self, _: &Self) -> std::option::Option<Ordering> {
-//         todo!("Need to implement PartialOrd for Packet");
-//     }
-// }
+    println!("Day 13a: {} (5852)", solve_a(input));
+    println!("Day 13b: {} (24190)", solve_b(input));
+}
 
-// impl Eq<Self> for Packet {
+fn solve_a(input: &str) -> usize {
+    input
+        .trim()
+        .split("\n\n")
+        .zip(1..)
+        .filter_map(|(pair, i)| {
+            let (line_1, line_2) = pair.split_once('\n').unwrap();
+            let packet_1 = parse(&mut line_1.chars());
+            let packet_2 = parse(&mut line_2.chars());
+            (cmp(&packet_1, &packet_2) == Ordering::Less).then_some(i)
+        })
+        .sum()
+}
 
-// impl Ord for Packet {
+fn solve_b(input: &str) -> usize {
+    let divider_1 = Packet::List(vec![Packet::List(vec![Packet::Num(2)])]);
+    let divider_2 = Packet::List(vec![Packet::List(vec![Packet::Num(6)])]);
+    let eq = |p1: &Packet, p2: &Packet| cmp(p1, p2) == Ordering::Equal;
+    let mut packets: Vec<Packet> = input
+        .trim()
+        .split('\n')
+        .filter_map(|line| (!line.is_empty()).then(|| parse(&mut line.chars())))
+        .chain([divider_1.clone(), divider_2.clone()])
+        .collect();
+    packets.sort_by(cmp);
+    packets
+        .into_iter()
+        .zip(1..)
+        .filter_map(|(packet, i)| (eq(&packet, &divider_1) || eq(&packet, &divider_2)).then_some(i))
+        .product()
+}
+
 fn cmp(packet_1: &Packet, packet_2: &Packet) -> Ordering {
     match (packet_1, packet_2) {
         (Packet::Num(num_1), Packet::Num(num_2)) => num_1.cmp(num_2),
@@ -46,99 +63,26 @@ fn cmp(packet_1: &Packet, packet_2: &Packet) -> Ordering {
     }
 }
 
-// type CharIter = Box<dyn Iterator<Item = char>>;
-fn parse(input: &[char]) -> Packet {
-    if input.is_empty() {
-        Packet::List(vec![])
-    } else {
-        if input[0] == '[' {
-            assert_eq!(input[input.len() - 1], ']');
-            let mut depth = 0;
-            let mut list = Vec::new();
-            let mut start = 1;
-            for i in 1..input.len() - 1 {
-                if input[i] == '[' {
-                    depth += 1;
-                } else if input[i] == ']' {
-                    depth -= 1;
-                } else if depth == 0 && input[i] == ',' {
-                    list.push(parse(&input[start..i]));
-                    start = i + 1;
-                    // ------
-                    // let right = parse(&input[i + 1..input.len() - 1]);
-                    // return Packet::List(vec![left, right]);
+fn parse(input: &mut impl Iterator<Item = char>) -> Packet {
+    let mut buffer = String::new();
+    let mut list = Vec::new();
+    while let Some(c) = input.next() {
+        match c {
+            '[' => list.push(parse(input)),
+
+            ']' => {
+                if let Ok(num) = buffer.drain(..).collect::<String>().parse() {
+                    list.push(Packet::Num(num));
+                }
+                return Packet::List(list);
+            }
+            ',' => {
+                if let Ok(num) = buffer.drain(..).collect::<String>().parse() {
+                    list.push(Packet::Num(num));
                 }
             }
-            Packet::List(list)
-        } else if input[0] == ']' {
-            panic!("Unexpected ']'")
-        } else if input[0] == ',' {
-            panic!("Unexpected ','")
-        } else {
-            Packet::Num(input.iter().collect::<String>().parse().unwrap())
+            _ => buffer.push(c),
         }
     }
+    list.pop().unwrap()
 }
-// fn parse(input: &[char]) -> Packet {
-//     let len = input.len();
-//     if input[0] == '[' {
-//         assert_eq!(
-//             input[len - 1],
-//             ']',
-//             "Error parsing \"{}\"",
-//             input.iter().collect::<String>()
-//         );
-//         Packet::List(
-//             input[1..len - 1]
-//                 .split(|&c| c == ',')
-//                 .map(|slice| {
-//                     println!("Recursing: \"{}\"", slice.iter().collect::<String>());
-//                     parse(slice)
-//                 })
-//                 .collect(),
-//         )
-//     } else {
-//         println!("Num: {}", input.iter().collect::<String>());
-//         Packet::Num(input.iter().collect::<String>().parse().unwrap())
-//     }
-// }
-
-fn main() {
-    // let input = include_str!("../../puzzle_inputs/day_12.txt");
-    // let mut height_map = parse_char_grid(input, identity);
-
-    for line in TEST_INPUT.trim().lines() {
-        let line = line.trim();
-        if line.is_empty() {
-            continue;
-        }
-        println!("{}", line);
-        println!("{:?}\n", parse(line.chars().collect::<Vec<_>>().as_slice()));
-    }
-}
-
-const TEST_INPUT: &str = "
-[1,1,3,1,1]
-[1,1,5,1,1]
-
-[[1],[2,3,4]]
-[[1],4]
-
-[9]
-[[8,7,6]]
-
-[[4,4],4,4]
-[[4,4],4,4,4]
-
-[7,7,7,7]
-[7,7,7]
-
-[]
-[3]
-
-[[[]]]
-[[]]
-
-[1,[2,[3,[4,[5,6,7]]]],8,9]
-[1,[2,[3,[4,[5,6,0]]]],8,9]
-";
