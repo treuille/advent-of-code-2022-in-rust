@@ -1,4 +1,4 @@
-pub mod parse_grid {
+pub mod grid {
     use ndarray::{Array1, Array2};
 
     /// Parses a sring representing a grid of characters into a 2D array.
@@ -15,6 +15,23 @@ pub mod parse_grid {
             .collect::<Array1<T>>();
         let cols = input.len() / rows;
         input.into_shape((rows, cols)).unwrap()
+    }
+
+    /// Returns the (up to four) valid compass neighbors of a position in a grid.
+    pub fn neighbors(
+        (x, y): (usize, usize),
+        (w, h): (usize, usize),
+    ) -> impl Iterator<Item = (usize, usize)> {
+        assert!(x < w);
+        assert!(y < h);
+        [
+            x.checked_sub(1).map(|x| (x, y)),
+            y.checked_sub(1).map(|y| (x, y)),
+            (x + 1 < w).then_some((x + 1, y)),
+            (y + 1 < h).then_some((x, y + 1)),
+        ]
+        .into_iter()
+        .flatten()
     }
 }
 
@@ -246,10 +263,11 @@ pub mod parse_regex {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_grid::parse_char_grid;
+    use super::grid::{neighbors, parse_char_grid};
     use super::parse_regex::{parse_line, parse_lines};
-    use ndarray::{arr2, Array2};
+    use ndarray::arr2;
     use regex::Regex;
+    use std::collections::HashSet;
 
     #[test]
     fn pair_parse_regex() {
@@ -303,5 +321,25 @@ mod tests {
         let expected = arr2(&[[1, 2, 3], [4, 5, 6]]);
         assert_eq!(array.dim(), (2, 3));
         assert_eq!(array, expected);
+    }
+
+    #[test]
+    fn test_neighbors() {
+        fn assert_set_eq<S1, S2>(s1: S1, s2: S2)
+        where
+            S1: IntoIterator<Item = (usize, usize)>,
+            S2: IntoIterator<Item = (usize, usize)>,
+        {
+            let s1: HashSet<_> = s1.into_iter().collect();
+            let s2: HashSet<_> = s2.into_iter().collect();
+            assert_eq!(s1, s2);
+        }
+
+        let dim = (3, 4);
+        assert_set_eq(neighbors((0, 0), dim), [(0, 1), (1, 0)]);
+        assert_set_eq(neighbors((1, 0), dim), [(0, 0), (1, 1), (2, 0)]);
+        assert_set_eq(neighbors((0, 1), dim), [(0, 0), (1, 1), (0, 2)]);
+        assert_set_eq(neighbors((1, 1), dim), [(0, 1), (2, 1), (1, 0), (1, 2)]);
+        assert_set_eq(neighbors((2, 3), dim), [(1, 3), (2, 2)]);
     }
 }

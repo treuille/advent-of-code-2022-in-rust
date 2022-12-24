@@ -1,4 +1,4 @@
-use aoc::parse_grid::parse_char_grid;
+use aoc::grid::parse_char_grid;
 use ndarray::{Array2, Axis};
 use std::iter;
 
