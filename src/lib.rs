@@ -1,3 +1,23 @@
+pub mod parse_grid {
+    use ndarray::{Array1, Array2};
+
+    /// Parses a sring representing a grid of characters into a 2D array.
+    pub fn parse_char_grid<T, F>(input: &str, parse_char: F) -> Array2<T>
+    where
+        F: Fn(char) -> T,
+    {
+        let lines: Vec<&str> = input.trim().lines().collect();
+        let rows = lines.len();
+        let input = lines
+            .iter()
+            .flat_map(|line| line.trim().chars())
+            .map(parse_char)
+            .collect::<Array1<T>>();
+        let cols = input.len() / rows;
+        input.into_shape((rows, cols)).unwrap()
+    }
+}
+
 pub mod parse_regex {
     use regex::Regex;
     use std::marker::PhantomData;
@@ -226,7 +246,9 @@ pub mod parse_regex {
 
 #[cfg(test)]
 mod tests {
+    use super::parse_grid::parse_char_grid;
     use super::parse_regex::{parse_line, parse_lines};
+    use ndarray::{arr2, Array2};
     use regex::Regex;
 
     #[test]
@@ -258,7 +280,6 @@ mod tests {
 
     #[test]
     fn lines_parse_regexs() {
-        // todo!("Do the line iterator.")
         let input = "
         a => x 
         b => y 
@@ -272,5 +293,15 @@ mod tests {
         assert_eq!(Some(('b', 'y')), iter.next());
         assert_eq!(Some(('c', 'z')), iter.next());
         assert_eq!(None, iter.next());
+    }
+
+    #[test]
+    fn test_grid_parsing() {
+        let to_u32 = |c: char| c.to_digit(10).unwrap() as u32;
+        let input = "\n123\n 456\n";
+        let array = parse_char_grid(input, to_u32);
+        let expected = arr2(&[[1, 2, 3], [4, 5, 6]]);
+        assert_eq!(array.dim(), (2, 3));
+        assert_eq!(array, expected);
     }
 }

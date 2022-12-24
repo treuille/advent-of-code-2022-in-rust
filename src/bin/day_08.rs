@@ -1,8 +1,11 @@
-use ndarray::{Array1, Array2, Axis};
+use aoc::parse_grid::parse_char_grid;
+use ndarray::{Array2, Axis};
 use std::iter;
 
 fn main() {
-    let trees = parse_input(include_str!("../../puzzle_inputs/day_08.txt"));
+    let input = include_str!("../../puzzle_inputs/day_08.txt");
+    let to_u8 = |c: char| c.to_digit(10).unwrap() as u8;
+    let trees = parse_char_grid(input, to_u8);
 
     println!("day 8a: {} (1789)", solve_a(&trees));
     println!("day 8b: {} (314820)", solve_b(&trees));
@@ -76,15 +79,4 @@ fn solve_b(trees: &Array2<u8>) -> usize {
         })
         .max()
         .unwrap()
-}
-
-fn parse_input(input: &str) -> Array2<u8> {
-    let input_lines: Vec<&str> = input.trim().lines().collect();
-    let rows = input_lines.len();
-    let input = input_lines
-        .iter()
-        .flat_map(|line| line.chars().filter_map(|c| String::from(c).parse().ok()))
-        .collect::<Array1<u8>>();
-    let cols = input.len() / rows;
-    input.into_shape((rows, cols)).unwrap()
 }
