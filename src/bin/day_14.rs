@@ -19,40 +19,48 @@ const SAND_START: Pt = (500, 0);
 fn main() {
     let input = include_str!("../../puzzle_inputs/day_14.txt");
     // let input = TEST_INPUT;
-    let mut grid = parse_input(input);
+    let grid = parse_input(input);
+
+    println!("Day 14a: {} (578)", solve(grid.clone(), true));
+    println!("Day 14b: {} (??)", solve(grid, false));
+}
+
+fn solve(mut grid: Grid, part_a: bool) -> usize {
     let max_y: usize = *grid.keys().map(|(_, y)| y).max().unwrap();
-    // print_grid(&grid, None);
-    // println!();
 
     let mut n_sand: usize = 0;
     loop {
-        print_grid(&grid, None);
-        println!();
-
         let mut sand_pos = SAND_START;
         loop {
+            // print_grid(&grid, Some(sand_pos));
+            // println!();
+
             // Advance the simulation
             let mut halted = true;
 
-            let next_pos = [
-                (sand_pos.0, sand_pos.1 + 1),
-                (sand_pos.0 - 1, sand_pos.1 + 1),
-                (sand_pos.0 + 1, sand_pos.1 + 1),
-            ];
-
-            for pos in next_pos {
-                if pos.1 > max_y {
-                    panic!("Reached the bottom with {} grid cells of sand!", n_sand);
-                } else if !grid.contains_key(&pos) {
-                    sand_pos = pos;
-                    halted = false;
-                    break;
+            if part_a || sand_pos.1 < max_y + 1 {
+                let next_pos = [
+                    (sand_pos.0, sand_pos.1 + 1),
+                    (sand_pos.0 - 1, sand_pos.1 + 1),
+                    (sand_pos.0 + 1, sand_pos.1 + 1),
+                ];
+                for pos in next_pos {
+                    if part_a && pos.1 > max_y {
+                        return n_sand;
+                    } else if !grid.contains_key(&pos) {
+                        sand_pos = pos;
+                        halted = false;
+                        break;
+                    }
                 }
             }
 
             if halted {
                 grid.insert(sand_pos, GridCell::Sand);
                 n_sand += 1;
+                if !part_a && sand_pos == SAND_START {
+                    return n_sand;
+                }
                 break;
             }
         }
@@ -86,20 +94,6 @@ fn print_grid(grid: &Grid, sand_pos: Option<(usize, usize)>) {
         }
         println!();
     }
-    // let char_grid: Array2<char> = Array1::from_iter(grid.indexed_iter().map(|(pos, cell)| {}))
-    //     .into_shape(grid.dim())
-    //     .unwrap();
-    // let char_sub_grid =
-    //     char_grid.slice(s![bounds.min_x..=bounds.max_x, bounds.min_y..=bounds.max_y]);
-    // println!(
-    //     "char_grid: {:?} char_sub_grid: {:?}",
-    //     char_grid.dim(),
-    //     char_sub_grid.dim()
-    // );
-
-    // for row in char_sub_grid.columns() {
-    //     println!("{}", row.iter().join(""));
-    // }
 }
 
 fn parse_input(input: &str) -> Grid {
