@@ -1,7 +1,6 @@
 use aoc::parse_regex::parse_lines;
 use itertools::{iproduct, Itertools};
 use regex::Regex;
-use std::collections::HashSet;
 
 fn main() {
     // Real input
@@ -53,11 +52,10 @@ fn solve_a(sensor_balls: &UVRects, beacons: &[Pt], y_to_check: i64) -> usize {
 
 fn solve_b(sensor_balls: &UVRects, limit_area: i64) -> i64 {
     let limit_center = (limit_area / 2, limit_area / 2);
-    let limit_area_covering = UVRect::from_pt_and_dist(limit_center, limit_area);
-    let potential_solns = HashSet::from([limit_area_covering]);
+    let potential_solns = UVRect::from_pt_and_dist(limit_center, limit_area);
     let (soln_x, soln_y) = sensor_balls
         .iter()
-        .fold(potential_solns, |uv_rects, sensor_ball| {
+        .fold(vec![potential_solns], |uv_rects, sensor_ball| {
             uv_rects
                 .iter()
                 .flat_map(|uv_rect| uv_rect.subtract(sensor_ball))
