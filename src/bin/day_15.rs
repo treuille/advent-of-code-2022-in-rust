@@ -55,8 +55,8 @@ fn solve_b(sensor_balls: &UVRects, limit_area: i64) -> i64 {
     let potential_solns = UVRect::from_pt_and_dist(limit_center, limit_area);
     let (soln_x, soln_y) = sensor_balls
         .iter()
-        .fold(vec![potential_solns], |uv_rects, sensor_ball| {
-            uv_rects
+        .fold(vec![potential_solns], |potential_solns, sensor_ball| {
+            potential_solns
                 .iter()
                 .flat_map(|uv_rect| uv_rect.subtract(sensor_ball))
                 .collect()
