@@ -100,7 +100,6 @@ fn manhattan_dist(a: Pt, b: Pt) -> i64 {
 }
 
 /// A rectungle in UV-space (representing an L1 ball in XY-space).
-#[derive(PartialEq, Eq, Hash)]
 struct UVRect {
     min: Pt,
     max: Pt,
