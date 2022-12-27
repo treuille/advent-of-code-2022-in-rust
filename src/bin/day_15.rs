@@ -6,58 +6,61 @@ use std::collections::HashSet;
 fn main() {
     // Real input
     let input = include_str!("../../puzzle_inputs/day_15.txt");
-    let (sensors, beacons, distances) = parse_input(input);
+    let (sensor_balls, beacons) = parse_input(input);
 
     println!(
         "solve a: {} (5878678)",
-        solve_a(&sensors, &beacons, &distances, 2000000)
+        solve_a(&sensor_balls, &beacons, 2000000)
     );
     println!(
         "solve b: {} (11796491041245)",
-        solve_b(&sensors, &distances, 4000000)
+        solve_b(&sensor_balls, 4000000)
     );
 }
 
-fn solve_a(sensors: &[Pt], beacons: &[Pt], distances: &[i64], y_to_check: i64) -> usize {
-    let min_x = sensors
+/// Returns two parallel vectors sensor balls and beacons.
+fn parse_input(input: &str) -> (UVRects, Vec<Pt>) {
+    let pt = r"x=(-?\d+), y=(-?\d+)".to_owned();
+    let re = format!("Sensor at {}: closest beacon is at {}", pt, pt);
+    let re = Regex::new(&re).unwrap();
+    parse_lines(re, input)
+        .map(|(sensor_x, sensor_y, beacon_x, beacon_y)| {
+            let (sensor, beacon) = ((sensor_x, sensor_y), (beacon_x, beacon_y));
+            let dist = manhattan_dist(beacon, sensor);
+            let sensor_ball = UVRect::from_pt_and_dist(sensor, dist);
+            (sensor_ball, beacon)
+        })
+        .unzip()
+}
+
+fn solve_a(sensor_balls: &UVRects, beacons: &[Pt], y_to_check: i64) -> usize {
+    let xs = sensor_balls
         .iter()
-        .zip(distances)
-        .map(|((x, _), dist)| x - dist)
-        .min()
-        .unwrap();
-    let max_x = sensors
-        .iter()
-        .zip(distances)
-        .map(|((x, _), dist)| x + dist)
-        .max()
-        .unwrap();
-    (min_x..=max_x)
-        .filter_map(|x| {
-            let pt = (x, y_to_check);
+        .flat_map(|rect| [to_xy(rect.min).0, to_xy(rect.max).0])
+        .collect_vec();
+    let min_x = xs.iter().min().unwrap();
+    let max_x = xs.iter().max().unwrap();
+    (*min_x..=*max_x)
+        .filter(|x| {
+            let pt = (*x, y_to_check);
             if beacons.contains(&pt) {
-                return None;
+                return false;
             }
-            for (sensor, dist) in sensors.iter().zip(distances) {
-                if manhattan_dist(*sensor, pt) <= *dist {
-                    return Some(());
-                }
-            }
-            None
+            sensor_balls.iter().any(|ball| ball.contains_xy(pt))
         })
         .count()
 }
 
-fn solve_b(sensors: &[Pt], distances: &[i64], limit_area: i64) -> i64 {
+fn solve_b(sensor_balls: &UVRects, limit_area: i64) -> i64 {
     let limit_center = (limit_area / 2, limit_area / 2);
-    let converting_rect = UVRect::from_pt_and_dist(limit_center, limit_area);
-    let uv_rects = HashSet::from([converting_rect]);
-    let solns = sensors
+    let limit_area_covering = UVRect::from_pt_and_dist(limit_center, limit_area);
+    let potential_solns = HashSet::from([limit_area_covering]);
+    let (soln_x, soln_y) = sensor_balls
         .iter()
-        .zip(distances.iter())
-        .fold(uv_rects, |uv_rects, (sensor, dist)| {
+        .fold(potential_solns, |uv_rects, sensor_ball| {
             uv_rects
                 .iter()
-                .flat_map(|uv_rect| uv_rect.subtract(&UVRect::from_pt_and_dist(*sensor, *dist)))
+                .flat_map(|uv_rect| uv_rect.subtract(sensor_ball))
                 .collect()
         })
         .into_iter()
@@ -74,30 +77,10 @@ fn solve_b(sensors: &[Pt], distances: &[i64], limit_area: i64) -> i64 {
                 rect.contains_xy((x, y)) && 0 <= x && x <= limit_area && 0 <= y && y <= limit_area
             })
         })
-        .collect_vec();
+        .next()
+        .unwrap();
 
-    let (soln_x, soln_y) = solns.first().unwrap();
     soln_x * 4000000 + soln_y
-}
-
-/// Returns parallel vectors of sensors, beacons, and the distances between them
-fn parse_input(input: &str) -> (Vec<Pt>, Vec<Pt>, Vec<i64>) {
-    let pt = r"x=(-?\d+), y=(-?\d+)".to_owned();
-    let re = format!("Sensor at {}: closest beacon is at {}", pt, pt);
-    let re = Regex::new(&re).unwrap();
-    let (sensors, beacons): (Vec<Pt>, Vec<Pt>) = parse_lines(re, input)
-        .map(|(sensor_x, sensor_y, beacon_x, beacon_y)| {
-            ((sensor_x, sensor_y), (beacon_x, beacon_y))
-        })
-        .unzip();
-
-    let distances = sensors
-        .iter()
-        .zip(&beacons)
-        .map(|(s, b)| manhattan_dist(*s, *b))
-        .collect_vec();
-
-    (sensors, beacons, distances)
 }
 
 /// A point in 2D space.
@@ -126,7 +109,7 @@ struct UVRect {
 }
 
 /// A set of (disjoint) UVRects.
-type UVRectSet = HashSet<UVRect>;
+type UVRects = Vec<UVRect>;
 
 impl UVRect {
     /// A rectungle representing an L1 ball of radius `dist` centered at `(x,y)`.
@@ -152,7 +135,7 @@ impl UVRect {
     }
 
     /// Subtract another rectangle from this one, returning the disjoint rectangle fragments.
-    fn subtract(&self, other: &UVRect) -> UVRectSet {
+    fn subtract(&self, other: &UVRect) -> UVRects {
         let us = [self.min.0, self.max.0, other.min.0, other.max.0];
         let sorted_us = us.into_iter().unique().sorted();
         let vs = [self.min.1, self.max.1, other.min.1, other.max.1];
