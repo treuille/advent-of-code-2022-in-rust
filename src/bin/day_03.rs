@@ -9,8 +9,8 @@ fn main() {
         .lines()
         .collect();
 
-    println!("day 3a: {}", solve_a(&input));
-    println!("day 3b: {}", solve_b(&input));
+    println!("day 3a: {} (7763)", solve_a(&input));
+    println!("day 3b: {} (2569)", solve_b(&input));
 }
 
 fn solve_a(input: &[&str]) -> u32 {

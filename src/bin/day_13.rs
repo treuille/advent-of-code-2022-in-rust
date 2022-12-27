@@ -9,8 +9,8 @@ enum Packet {
 fn main() {
     let input = include_str!("../../puzzle_inputs/day_13.txt");
 
-    println!("Day 13a: {} (5852)", solve_a(input));
-    println!("Day 13b: {} (24190)", solve_b(input));
+    println!("day 13a: {} (5852)", solve_a(input));
+    println!("day 13b: {} (24190)", solve_b(input));
 }
 
 fn solve_a(input: &str) -> usize {

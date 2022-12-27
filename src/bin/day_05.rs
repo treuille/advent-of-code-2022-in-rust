@@ -27,8 +27,14 @@ fn main() {
     let instructions: Vec<Instruction> = parse_lines(re, instructions).collect();
 
     // Print the solutions
-    println!("day 5a: {}", sim_crane(&stacks, &instructions, false));
-    println!("day 5b: {}", sim_crane(&stacks, &instructions, true));
+    println!(
+        "day 5a: {} (RNZLFZSJH)",
+        sim_crane(&stacks, &instructions, false)
+    );
+    println!(
+        "day 5b: {} (CNSFCGJSM)",
+        sim_crane(&stacks, &instructions, true)
+    );
 }
 
 fn sim_crane(stacks: &[Stack], instructions: &[Instruction], cm_9001: bool) -> String {

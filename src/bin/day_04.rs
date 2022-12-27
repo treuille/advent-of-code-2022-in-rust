@@ -7,7 +7,7 @@ fn main() {
     let input: Vec<(usize, usize, usize, usize)> = parse_lines(re, input.trim()).collect();
 
     println!(
-        "day 4a: {}",
+        "day 4a: {} (524)",
         input
             .iter()
             .filter(|(a1, a2, b1, b2)| (a1 <= b1 && a2 >= b2) || (b1 <= a1 && b2 >= a2))
@@ -15,7 +15,7 @@ fn main() {
     );
 
     println!(
-        "day 4b: {}",
+        "day 4b: {} (798)",
         input
             .iter()
             .filter(|(a1, a2, b1, b2)| a2 >= b1 && b2 >= a1)

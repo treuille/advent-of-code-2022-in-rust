@@ -4,9 +4,15 @@ use regex::Regex;
 fn main() {
     let input = parse_input(include_str!("../../puzzle_inputs/day_02.txt"));
 
-    println!("day 2a: {}", input.iter().map(compute_score_a).sum::<u64>());
+    println!(
+        "day 2a: {} (14375)",
+        input.iter().map(compute_score_a).sum::<u64>()
+    );
 
-    println!("day 2b: {}", input.iter().map(compute_score_b).sum::<u64>());
+    println!(
+        "day 2b: {} (10274)",
+        input.iter().map(compute_score_b).sum::<u64>()
+    );
 }
 
 fn compute_score_a(round: &(char, char)) -> u64 {

@@ -3,11 +3,14 @@ fn main() {
     let mut sums: Vec<u64> = input.iter().map(|nums| nums.iter().sum()).collect();
 
     // Solve problem a.
-    println!("day 1a: {}", sums.iter().max().unwrap());
+    println!("day 1a: {} (68802)", sums.iter().max().unwrap());
 
     // Solve problem b.
     sums.sort();
-    println!("day 1b: {:?}", sums.iter().rev().take(3).sum::<u64>());
+    println!(
+        "day 1b: {:?} (205370)",
+        sums.iter().rev().take(3).sum::<u64>()
+    );
 }
 
 fn read_input(input: &str) -> Vec<Vec<u64>> {

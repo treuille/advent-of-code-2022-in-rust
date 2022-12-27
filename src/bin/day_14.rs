@@ -5,8 +5,8 @@ fn main() {
     let input = include_str!("../../puzzle_inputs/day_14.txt");
     let grid = parse_input(input);
 
-    println!("Day 14a: {} (578)", solve(grid.clone(), true));
-    println!("Day 14b: {} (24377)", solve(grid, false));
+    println!("day 14a: {} (578)", solve(grid.clone(), true));
+    println!("day 14b: {} (24377)", solve(grid, false));
 }
 
 fn solve(mut grid: HashSet<(usize, usize)>, part_a: bool) -> usize {

@@ -8,11 +8,11 @@ fn main() {
     let (sensor_balls, beacons) = parse_input(input);
 
     println!(
-        "solve a: {} (5878678)",
+        "day 15a: {} (5878678)",
         solve_a(&sensor_balls, &beacons, 2000000)
     );
     println!(
-        "solve b: {} (11796491041245)",
+        "day 15b: {} (11796491041245)",
         solve_b(&sensor_balls, 4000000)
     );
 }
