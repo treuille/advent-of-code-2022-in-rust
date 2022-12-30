@@ -1,5 +1,5 @@
 use aoc::parse_regex::parse_lines;
-use itertools::Itertools;
+// use itertools::Itertools;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 
@@ -17,17 +17,20 @@ Valve JJ has flow rate=21; tunnel leads to valve II
 ";
 
 fn main() {
-    // let input = include_str!("../../puzzle_inputs/day_15.txt");
-    let input = TEST_INPUT.trim();
+    let input = include_str!("../../puzzle_inputs/day_16.txt");
+    // let input = TEST_INPUT;
     let puzzle = Puzzle::from_str(input);
 
     // println!("flow_rate: {:?}", flow_rates);
     // println!("tunnels: {:?}", tunnels);
 
-    // let answer = solve("AA", 1, &HashSet::new(), 0, 0, &flow_rates, &tunnels);
-    let answer = puzzle.solve_b(State::new());
-    println!("answer: {}", answer);
+    // let answer_b = puzzle.solve_b(State::new());
+    // println!("answer_b: {}\n", answer_b);
+
+    let answer_c = puzzle.solve_c(State::new(), 0);
+    println!("answer_c: {}", answer_c);
 }
+
 type Valves = HashSet<&'static str>;
 
 #[allow(dead_code)]
@@ -60,9 +63,7 @@ impl Puzzle {
         }
     }
 
-    #[allow(clippy::only_used_in_recursion)]
-    /// Returns the best possible flow achievable from `valve` starting at `minute`,
-    /// assuming we've already scored a flow of `score`.
+    /// Uses the best moves array to find the best possible score.
     fn solve_b(&self, state: State) -> usize {
         if state.minute > BEST_MOVES.len() {
             return state.score;
@@ -82,7 +83,58 @@ impl Puzzle {
         }
     }
 
+    /// Returns the best possible flow achievable from `valve` starting at `minute`,
+    /// assuming we've already scored a flow of `score`.
+    fn solve_c(&self, state: State, mut best_score: usize) -> usize {
+        assert!(
+            state.minute <= 30,
+            "Cannot run for to minute {}",
+            state.minute
+        );
+        if state.minute == 30 {
+            // println!("Min: {} state.score: {}", state.minute, state.score);
+            return state.score;
+        }
+
+        // First, check if it's even possible to beat the best score.
+        let closed: Valves = HashSet::from_iter(self.valves.difference(&state.open).copied());
+        let closed_flow: usize = closed.iter().map(|v| self.flow_rates[v]).sum();
+        let max_possible_remaining_score = closed_flow * (30 - state.minute);
+        let best_potential_score = state.score + max_possible_remaining_score;
+        // println!(
+        //     "Min: {} best_potential_score: {} best_score: {}",
+        //     state.minute, best_potential_score, best_score
+        // );
+        if best_potential_score < best_score {
+            return 0;
+        }
+
+        let next_states = closed
+            .contains(state.valve)
+            .then(|| self.open_valve(&state))
+            .into_iter()
+            .chain(
+                self.tunnels[state.valve]
+                    .iter()
+                    .map(|&next_valve| self.move_to(&state, next_valve)),
+            );
+
+        for next_state in next_states {
+            let next_score = self.solve_c(next_state, best_score);
+            if next_score > best_score {
+                best_score = next_score;
+                println!("Min: {} NEW best_score: {}", state.minute, best_score);
+            }
+        }
+        best_score
+    }
+
     fn open_valve(&self, state: &State) -> State {
+        assert!(
+            !state.open.contains(state.valve),
+            "Cannot open valve \"{}\" twice.",
+            state.valve
+        );
         State {
             minute: state.minute + 1,
             valve: state.valve,
