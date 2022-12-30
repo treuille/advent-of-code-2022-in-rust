@@ -30,7 +30,11 @@ fn main() {
     // println!("answer_c: {}", answer_c.score);
     // answer_c.print_states();
 
-    let answer_d = puzzle.solve(StateA::new(), &None).expect("No solution");
+    // let answer_d = puzzle.solve(StateA::new(), &None).expect("No solution");
+    // println!("answer_d: {}\n{}\n", answer_d.score, answer_d.path_str());
+    // answer_d.print_states();
+
+    let answer_d = puzzle.solve(StateB::new(), &None).expect("No solution");
     println!("answer_d: {}\n{}\n", answer_d.score, answer_d.path_str());
     answer_d.print_states();
 }
@@ -150,6 +154,12 @@ impl Puzzle {
     /// Returns the best possible flow achievable from `valve` starting at `minute`,
     /// assuming we've already scored a flow of `score`.
     fn solve<S: State>(&self, state: S, best_state: &Option<S>) -> Option<S> {
+        if let Some(best_state) = best_state {
+            if best_state.score() > state.best_potential_score(self) {
+                return Some(best_state.clone());
+            }
+        }
+
         let mut best_state = State::max(Some(state.clone()), best_state.clone());
         for next_state in state.next_states(self) {
             let next_best_state = self.solve(next_state.clone(), &best_state);
@@ -171,30 +181,30 @@ impl Puzzle {
         best_state
     }
 
-    fn open_valve(&self, state: &StateA) -> StateA {
-        assert!(
-            !state.open.contains(state.valve),
-            "Cannot open valve \"{}\" twice.",
-            state.valve
-        );
-        StateA {
-            minute: state.minute + 1,
-            valve: state.valve,
-            score: state.score + self.flow_rates[state.valve] * (30 - state.minute),
-            open: state.open.iter().copied().chain([state.valve]).collect(),
-            previous_state: Some(Box::new((*state).clone())),
-        }
-    }
+    // fn open_valve(&self, state: &StateA) -> StateA {
+    //     assert!(
+    //         !state.open.contains(state.valve),
+    //         "Cannot open valve \"{}\" twice.",
+    //         state.valve
+    //     );
+    //     StateA {
+    //         minute: state.minute + 1,
+    //         valve: state.valve,
+    //         score: state.score + self.flow_rates[state.valve] * (30 - state.minute),
+    //         open: state.open.iter().copied().chain([state.valve]).collect(),
+    //         previous_state: Some(Box::new((*state).clone())),
+    //     }
+    // }
 
-    fn move_to(&self, state: &StateA, next_valve: StaticStr) -> StateA {
-        StateA {
-            minute: state.minute + 1,
-            valve: next_valve,
-            score: state.score,
-            open: state.open.clone(),
-            previous_state: Some(Box::new((*state).clone())),
-        }
-    }
+    // fn move_to(&self, state: &StateA, next_valve: StaticStr) -> StateA {
+    //     StateA {
+    //         minute: state.minute + 1,
+    //         valve: next_valve,
+    //         score: state.score,
+    //         open: state.open.clone(),
+    //         previous_state: Some(Box::new((*state).clone())),
+    //     }
+    // }
 }
 
 trait State: Clone {
@@ -208,6 +218,9 @@ trait State: Clone {
 
     /// What is the current score accrued at this state.
     fn score(&self) -> usize;
+
+    /// An overestimate of the score that can be achieved from this state.
+    fn best_potential_score(&self, puzzle: &Puzzle) -> usize;
 
     /// A longer representation of the state.
     fn to_str(&self) -> String;
@@ -312,6 +325,17 @@ impl State for StateA {
         self.score
     }
 
+    /// An overestimate of the score that can be achieved from this state.
+    fn best_potential_score(&self, puzzle: &Puzzle) -> usize {
+        self.score
+            + puzzle
+                .valves
+                .iter()
+                .filter(|&&v| !self.open.contains(v))
+                .map(|&v| puzzle.flow_rates[v] * (30 - self.minute))
+                .sum::<usize>()
+    }
+
     /// A longer representation of the state.
     fn to_str(&self) -> String {
         format!(
@@ -328,6 +352,112 @@ impl State for StateA {
         self.valve.to_string()
     }
 }
+
+#[derive(Debug, Clone)]
+struct StateB {
+    minute: [usize; 2],
+    valve: [StaticStr; 2],
+    score: usize,
+    open: Valves,
+    previous_state: Option<Box<StateB>>,
+}
+
+impl StateB {
+    fn new() -> Self {
+        Self {
+            minute: [1, 1],
+            valve: ["AA", "AA"],
+            score: 0,
+            open: HashSet::new(),
+            previous_state: None,
+        }
+    }
+
+    fn jump_to_and_open(&self, player: usize, next_valve: StaticStr, puzzle: &Puzzle) -> StateB {
+        assert!(
+            self.valve[player] != next_valve,
+            "Cannot jump to the same valve"
+        );
+        assert!(!self.open.contains(next_valve), "Cannot open valve twice");
+        let arrival_time =
+            self.minute[player] + puzzle.shortest_paths[&(self.valve[player], next_valve)];
+        let mut minute = self.minute.clone();
+        let mut valve = self.valve.clone();
+        minute[player] = arrival_time + 1;
+        valve[player] = next_valve;
+        StateB {
+            minute,
+            valve,
+            score: self.score + puzzle.flow_rates[next_valve] * (26 - arrival_time),
+            open: self.open.iter().copied().chain([next_valve]).collect(),
+            previous_state: Some(Box::new((*self).clone())),
+        }
+    }
+}
+
+impl State for StateB {
+    /// Returns the state preceding this one in the history.
+    fn previous_state(&self) -> Option<&Self> {
+        self.previous_state.as_deref()
+    }
+
+    /// Returns vector of all possible next states.
+    fn next_states(&self, puzzle: &Puzzle) -> Vec<Self>
+    where
+        Self: Sized,
+    {
+        let player = if self.minute[0] < self.minute[1] {
+            0
+        } else {
+            1
+        };
+        // TODO: I should take the outer product with both player
+        puzzle
+            .valves
+            .iter()
+            .filter(|&&v| {
+                (v != self.valve[player]) && (!self.open.contains(v)) && (puzzle.flow_rates[v] > 0)
+            })
+            .map(|&v| self.jump_to_and_open(player, v, puzzle))
+            .filter(|s| s.minute[player] <= 26)
+            .collect_vec()
+    }
+
+    /// What is the current score accrued at this state.
+    fn score(&self) -> usize {
+        self.score
+    }
+
+    #[allow(unused_variables)]
+    /// An overestimate of the score that can be achieved from this state.
+    fn best_potential_score(&self, puzzle: &Puzzle) -> usize {
+        let min_minute = self.minute[0].min(self.minute[1]);
+        self.score
+            + puzzle
+                .valves
+                .iter()
+                .filter(|&&v| !self.open.contains(v))
+                .map(|&v| puzzle.flow_rates[v] * (26 - min_minute))
+                .sum::<usize>()
+    }
+
+    /// A longer representation of the state.
+    fn to_str(&self) -> String {
+        format!(
+            "mins: {:?} valves: {:?} score: {} opened: {:?}",
+            self.minute,
+            self.valve,
+            self.score,
+            self.open.len()
+        )
+    }
+
+    /// A shorter representation of the state.
+    fn to_short_str(&self) -> String {
+        self.valve.iter().join(",")
+    }
+}
+
 enum Move {
     MoveTo(StaticStr),
     Open,
