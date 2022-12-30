@@ -1,7 +1,8 @@
 use aoc::parse_regex::parse_lines;
-// use itertools::Itertools;
+use itertools::Itertools;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
+use std::iter::successors;
 
 const TEST_INPUT: &str = "
 Valve AA has flow rate=0; tunnels lead to valves DD, II, BB
@@ -16,38 +17,43 @@ Valve II has flow rate=0; tunnels lead to valves AA, JJ
 Valve JJ has flow rate=21; tunnel leads to valve II
 ";
 
+#[allow(unreachable_code)]
 fn main() {
     let input = include_str!("../../puzzle_inputs/day_16.txt");
     // let input = TEST_INPUT;
     let puzzle = Puzzle::from_str(input);
 
-    // println!("flow_rate: {:?}", flow_rates);
-    // println!("tunnels: {:?}", tunnels);
-
     // let answer_b = puzzle.solve_b(State::new());
-    // println!("answer_b: {}\n", answer_b);
+    // println!("answer_b: {}\n{}\n", answer_b.score, answer_b.path_str());
 
-    let answer_c = puzzle.solve_c(State::new(), 0);
-    println!("answer_c: {}", answer_c);
+    // let answer_c = puzzle.solve_c(State::new(), &None);
+    // println!("answer_c: {}", answer_c.score);
+    // answer_c.print_states();
+
+    let answer_d = puzzle.solve_d(State::new(), &None).expect("No solution");
+    println!("answer_d: {}\n{}\n", answer_d.score, answer_d.path_str());
+    answer_d.print_states();
 }
 
-type Valves = HashSet<&'static str>;
+type StaticStr = &'static str;
+type Valves = HashSet<StaticStr>;
 
 #[allow(dead_code)]
 struct Puzzle {
-    flow_rates: HashMap<&'static str, usize>,
-    tunnels: HashMap<&'static str, Vec<&'static str>>,
+    flow_rates: HashMap<StaticStr, usize>,
+    tunnels: HashMap<StaticStr, Vec<StaticStr>>,
     valves: Valves,
+    shortest_paths: HashMap<(StaticStr, StaticStr), usize>,
 }
 
 impl Puzzle {
-    fn from_str(input: &'static str) -> Self {
+    fn from_str(input: StaticStr) -> Self {
         // Parse the input.
         let re = Regex::new(r"Valve (\w+) has flow rate=(\d+); tunnels? leads? to valves? (.*)")
             .unwrap();
 
-        let flow_rates: HashMap<&'static str, usize>;
-        let tunnels: HashMap<&'static str, Vec<&'static str>>;
+        let flow_rates: HashMap<StaticStr, usize>;
+        let tunnels: HashMap<StaticStr, Vec<StaticStr>>;
         (flow_rates, tunnels) = parse_lines(re, input.trim())
             .map(|(name, flow_rate, tunnels): (&str, usize, &str)| {
                 let xyz = tunnels.split(", ").collect();
@@ -55,18 +61,76 @@ impl Puzzle {
             })
             .unzip();
 
-        let valves = flow_rates.keys().cloned().collect();
+        let valves: Valves = flow_rates.keys().cloned().collect();
+        let shortest_paths = Puzzle::shortest_paths(valves.iter().copied().collect_vec(), &tunnels);
         Puzzle {
             flow_rates,
             tunnels,
             valves,
+            shortest_paths,
         }
     }
 
-    /// Uses the best moves array to find the best possible score.
-    fn solve_b(&self, state: State) -> usize {
+    fn shortest_paths(
+        valves: Vec<StaticStr>,
+        tunnels: &HashMap<StaticStr, Vec<StaticStr>>,
+    ) -> HashMap<(StaticStr, StaticStr), usize> {
+        // Let's put in all single links.
+        let mut shortest_paths: HashMap<(StaticStr, StaticStr), usize> = tunnels
+            .iter()
+            .flat_map(|(valve, tunnels)| {
+                tunnels.iter().map(|next_valve| ((*valve, *next_valve), 1))
+            })
+            .collect();
+
+        for i in 0..valves.len() {
+            let valve_1 = valves[i];
+            for valve_2 in valves[0..i].iter().copied() {
+                // Hook up valve_1 to everything, even indirectly
+                if !shortest_paths.contains_key(&(valve_1, valve_2)) {
+                    let min_path = valves[0..i]
+                        .iter()
+                        .copied()
+                        .filter_map(|valve_3| {
+                            shortest_paths.get(&(valve_1, valve_3)).and_then(|&dist_1| {
+                                shortest_paths
+                                    .get(&(valve_3, valve_2))
+                                    .map(|&dist_2| dist_1 + dist_2)
+                            })
+                        })
+                        .min();
+                    if let Some(min_path) = min_path {
+                        shortest_paths.insert((valve_1, valve_2), min_path);
+                        shortest_paths.insert((valve_2, valve_1), min_path);
+                    }
+                }
+
+                // Check to see if there are any other shorter paths to be found.
+                for valve_3 in valves[0..i].iter().copied() {
+                    if let Some(&dist_1) = shortest_paths.get(&(valve_2, valve_1)) {
+                        if let Some(&dist_2) = shortest_paths.get(&(valve_1, valve_3)) {
+                            let dist_3 = dist_1 + dist_2;
+                            if let Some(&dist_4) = shortest_paths.get(&(valve_2, valve_3)) {
+                                if dist_3 < dist_4 {
+                                    shortest_paths.insert((valve_2, valve_3), dist_3);
+                                    shortest_paths.insert((valve_3, valve_2), dist_3);
+                                }
+                            } else {
+                                shortest_paths.insert((valve_2, valve_3), dist_3);
+                                shortest_paths.insert((valve_3, valve_2), dist_3);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        shortest_paths
+    }
+
+    /// Finds the best final state.
+    fn solve_b(&self, state: State) -> State {
         if state.minute > BEST_MOVES.len() {
-            return state.score;
+            return state;
         }
         match BEST_MOVES[state.minute - 1] {
             Move::Open => {
@@ -85,7 +149,7 @@ impl Puzzle {
 
     /// Returns the best possible flow achievable from `valve` starting at `minute`,
     /// assuming we've already scored a flow of `score`.
-    fn solve_c(&self, state: State, mut best_score: usize) -> usize {
+    fn solve_c(&self, state: State, best_state: &Option<State>) -> State {
         assert!(
             state.minute <= 30,
             "Cannot run for to minute {}",
@@ -93,20 +157,18 @@ impl Puzzle {
         );
         if state.minute == 30 {
             // println!("Min: {} state.score: {}", state.minute, state.score);
-            return state.score;
+            return state;
         }
 
         // First, check if it's even possible to beat the best score.
         let closed: Valves = HashSet::from_iter(self.valves.difference(&state.open).copied());
-        let closed_flow: usize = closed.iter().map(|v| self.flow_rates[v]).sum();
-        let max_possible_remaining_score = closed_flow * (30 - state.minute);
-        let best_potential_score = state.score + max_possible_remaining_score;
-        // println!(
-        //     "Min: {} best_potential_score: {} best_score: {}",
-        //     state.minute, best_potential_score, best_score
-        // );
-        if best_potential_score < best_score {
-            return 0;
+        if let Some(best_state) = best_state {
+            let closed_flow: usize = closed.iter().map(|v| self.flow_rates[v]).sum();
+            let max_possible_remaining_score = closed_flow * (30 - state.minute);
+            let best_potential_score = state.score + max_possible_remaining_score;
+            if best_potential_score < best_state.score {
+                return best_state.clone();
+            }
         }
 
         let next_states = closed
@@ -119,14 +181,78 @@ impl Puzzle {
                     .map(|&next_valve| self.move_to(&state, next_valve)),
             );
 
+        let mut best_state = best_state.clone();
         for next_state in next_states {
-            let next_score = self.solve_c(next_state, best_score);
-            if next_score > best_score {
-                best_score = next_score;
-                println!("Min: {} NEW best_score: {}", state.minute, best_score);
+            let next_best_state = self.solve_c(next_state, &best_state);
+            if let Some(prev_best_state) = best_state.clone() {
+                if next_best_state.score > prev_best_state.score {
+                    best_state = Some(next_best_state);
+                }
+            } else {
+                best_state = Some(next_best_state);
             }
         }
-        best_score
+        best_state.unwrap()
+    }
+
+    /// Returns the best possible flow achievable from `valve` starting at `minute`,
+    /// assuming we've already scored a flow of `score`.
+    fn solve_d(&self, state: State, best_state: &Option<State>) -> Option<State> {
+        #[allow(clippy::comparison_chain)]
+        if state.minute == 30 {
+            // println!("Min: {} state.score: {}", state.minute, state.score);
+            return Some(state);
+        } else if state.minute > 30 {
+            return state.previous_state.map(|s| *s);
+        }
+
+        // First, check if it's even possible to beat the best score.
+        // let closed = self.valves.difference(&state.open);
+        let next_states = self
+            .valves
+            .iter()
+            .filter(|&&v| {
+                (v != state.valve) && (!state.open.contains(v)) && (self.flow_rates[v] > 0)
+            })
+            .map(|&v| self.jump_to_and_open(&state, v));
+
+        // for next_state in next_states {
+        //     println!("considering {:?}\n", next_state);
+        // }
+        // todo!("Stopping here");
+
+        let max_state = |s1: Option<State>, s2: Option<State>| match (s1, s2) {
+            (Some(s1), Some(s2)) => {
+                if s1.score > s2.score {
+                    Some(s1)
+                } else {
+                    Some(s2)
+                }
+            }
+            (Some(s1), None) => Some(s1),
+            (None, Some(s2)) => Some(s2),
+            (None, None) => None,
+        };
+
+        let mut best_state = max_state(Some(state.clone()), best_state.clone());
+        for next_state in next_states {
+            let next_best_state = self.solve_d(next_state.clone(), &best_state);
+            // println!(
+            //     "considering {:?} score: {}->{} (best: {})",
+            //     next_state.path_str(),
+            //     next_state.score,
+            //     next_best_state
+            //         .as_ref()
+            //         .map(|s| s.score.to_string())
+            //         .unwrap_or_else(|| "None".to_owned()),
+            //     best_state
+            //         .as_ref()
+            //         .map(|s| s.score.to_string())
+            //         .unwrap_or_else(|| "None".to_owned())
+            // );
+            best_state = max_state(next_best_state, best_state);
+        }
+        best_state
     }
 
     fn open_valve(&self, state: &State) -> State {
@@ -140,25 +266,41 @@ impl Puzzle {
             valve: state.valve,
             score: state.score + self.flow_rates[state.valve] * (30 - state.minute),
             open: state.open.iter().copied().chain([state.valve]).collect(),
+            previous_state: Some(Box::new((*state).clone())),
         }
     }
 
-    fn move_to(&self, state: &State, next_valve: &'static str) -> State {
+    fn move_to(&self, state: &State, next_valve: StaticStr) -> State {
         State {
             minute: state.minute + 1,
             valve: next_valve,
             score: state.score,
             open: state.open.clone(),
+            previous_state: Some(Box::new((*state).clone())),
+        }
+    }
+
+    fn jump_to_and_open(&self, state: &State, next_valve: StaticStr) -> State {
+        assert!(state.valve != next_valve, "Cannot jump to the same valve");
+        assert!(!state.open.contains(next_valve), "Cannot open valve twice");
+        let arrival_time = state.minute + self.shortest_paths[&(state.valve, next_valve)];
+        State {
+            minute: arrival_time + 1,
+            valve: next_valve,
+            score: state.score + self.flow_rates[next_valve] * (30 - arrival_time),
+            open: state.open.iter().copied().chain([next_valve]).collect(),
+            previous_state: Some(Box::new((*state).clone())),
         }
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct State {
     minute: usize,
-    valve: &'static str,
+    valve: StaticStr,
     score: usize,
     open: Valves,
+    previous_state: Option<Box<State>>,
 }
 
 impl State {
@@ -168,12 +310,35 @@ impl State {
             valve: "AA",
             score: 0,
             open: HashSet::new(),
+            previous_state: None,
         }
+    }
+
+    fn print_states(&self) {
+        let previous_states = successors(Some(self), |s| s.previous_state.as_deref()).collect_vec();
+        for state in previous_states.iter().rev() {
+            println!(
+                "Min: {} valve: {} score: {} opened: {:?}",
+                state.minute,
+                state.valve,
+                state.score,
+                state.open.len()
+            );
+        }
+    }
+
+    fn path_str(&self) -> String {
+        let previous_states = successors(Some(self), |s| s.previous_state.as_deref()).collect_vec();
+        previous_states
+            .into_iter()
+            .rev()
+            .map(|s| s.valve)
+            .join("->")
     }
 }
 
 enum Move {
-    MoveTo(&'static str),
+    MoveTo(StaticStr),
     Open,
 }
 
@@ -205,7 +370,7 @@ const BEST_MOVES: [Move; 24] = [
 ];
 
 // fn solve(
-//     valve: &'static str,
+//     valve: StaticStr,
 //     minute: usize,
 //     open: &Valves,
 //     score_so_far: usize,
@@ -267,7 +432,7 @@ const BEST_MOVES: [Move; 24] = [
 //     best_score
 // }
 
-// let trace: [(Vec<&'static str>, usize); 30] = [
+// let trace: [(Vec<StaticStr>, usize); 30] = [
 //     (vec![], 0),                                    // min 1
 //     (vec![], 0),                                    // min 2
 //     (vec!["DD"], 20),                               // min 3
