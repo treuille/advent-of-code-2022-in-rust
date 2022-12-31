@@ -34,8 +34,8 @@ impl Puzzle {
             .unwrap();
         (flow_rates, tunnels) = parse_lines(re, input.trim())
             .map(|(name, flow_rate, tunnels): (&str, usize, &str)| {
-                let xyz = tunnels.split(", ").collect();
-                ((name, flow_rate), (name, xyz))
+                let tunnels = tunnels.split(", ").collect();
+                ((name, flow_rate), (name, tunnels))
             })
             .unzip();
 
@@ -262,12 +262,14 @@ impl State for StateB {
             true => 1,
         };
 
-        // TODO: I should take the outer product with both player
         puzzle
             .flow_rates
             .keys()
             .filter(|&&v| {
-                (v != self.valve[player]) && (!self.open.contains(v)) && (puzzle.flow_rates[v] > 0)
+                (v != self.valve[player])         // Don't move back to your own valve.
+                    && (!self.open.contains(v))   // Move only to closed valves.
+                    && (puzzle.flow_rates[v] > 0) // Don't bother opening valves with no flow
+                    && (v != "KZ" || player == 0) // Distinguish between players 0 and 1
             })
             .map(|&v| self.jump_to_and_open(player, v, puzzle))
             .filter(|s| s.minute[player] <= 26)
