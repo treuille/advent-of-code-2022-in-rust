@@ -242,11 +242,13 @@ impl StateB {
         let (mut minute, mut valve) = (self.minute, self.valve);
         minute[player] = arrival_time + 1;
         valve[player] = next_valve;
+        let mut open = self.open.clone();
+        open.insert(next_valve);
         StateB {
             minute,
             valve,
             score: self.score + puzzle.flow_rates[next_valve] * (26 - arrival_time),
-            open: self.open.iter().copied().chain([next_valve]).collect(),
+            open,
         }
     }
 }
@@ -257,10 +259,11 @@ impl State for StateB {
     where
         Self: Sized,
     {
-        let player = match self.minute[0] >= self.minute[1] {
-            false => 0,
-            true => 1,
-        };
+        // let player = match self.minute[0] < self.minute[1] {
+        //     true => 0,
+        //     false => 1,
+        // };
+        let player = (self.minute[0] < self.minute[1]).then_some(0).unwrap_or(1);
 
         puzzle
             .flow_rates
