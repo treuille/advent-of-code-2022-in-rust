@@ -5,13 +5,14 @@ use std::collections::{HashMap, HashSet};
 
 fn main() {
     let input = include_str!("../../puzzle_inputs/day_16.txt");
-    let puzzle = Puzzle::from_str(input);
+    let mut puzzle = Puzzle::from_str(input);
 
     println!(
         "day 15a: {} (1638)",
         puzzle.solve(StateA::new(), &None).unwrap().score
     );
 
+    puzzle.total_minutes = 26;
     println!(
         "day 15b: {} (2400)",
         puzzle.solve(StateB::new(), &None).unwrap().score
@@ -23,6 +24,7 @@ type StaticStr = &'static str;
 struct Puzzle {
     flow_rates: HashMap<StaticStr, usize>,
     shortest_paths: HashMap<(StaticStr, StaticStr), usize>,
+    total_minutes: usize,
 }
 
 impl Puzzle {
@@ -42,6 +44,7 @@ impl Puzzle {
         Puzzle {
             flow_rates,
             shortest_paths: Puzzle::shortest_paths(&tunnels),
+            total_minutes: 30,
         }
     }
 
@@ -165,11 +168,14 @@ impl StateA {
         assert!(self.valve != next_valve, "Cannot jump to the same valve");
         assert!(!self.open.contains(next_valve), "Cannot open valve twice");
         let arrival_time = self.minute + puzzle.shortest_paths[&(self.valve, next_valve)];
+        let mut also_open_next_valve = self.open.clone();
+        also_open_next_valve.insert(next_valve);
         StateA {
             minute: arrival_time + 1,
             valve: next_valve,
-            score: self.score + puzzle.flow_rates[next_valve] * (30 - arrival_time),
-            open: self.open.iter().copied().chain([next_valve]).collect(),
+            score: self.score
+                + puzzle.flow_rates[next_valve] * (puzzle.total_minutes - arrival_time),
+            open: also_open_next_valve,
         }
     }
 }
@@ -184,7 +190,7 @@ impl State for StateA {
                 (v != self.valve) && (!self.open.contains(v)) && (puzzle.flow_rates[v] > 0)
             })
             .map(|&v| self.jump_to_and_open(v, puzzle))
-            .filter(|s| s.minute <= 30)
+            .filter(|s| s.minute <= puzzle.total_minutes)
             .collect_vec()
     }
 
@@ -200,7 +206,7 @@ impl State for StateA {
                 .flow_rates
                 .keys()
                 .filter(|&&v| !self.open.contains(v))
-                .map(|&v| puzzle.flow_rates[v] * (30 - self.minute))
+                .map(|&v| puzzle.flow_rates[v] * (puzzle.total_minutes - self.minute))
                 .sum::<usize>()
     }
 }
@@ -223,24 +229,30 @@ impl StateB {
         }
     }
 
-    fn jump_to_and_open(&self, player: usize, next_valve: StaticStr, puzzle: &Puzzle) -> StateB {
-        assert!(
-            self.valve[player] != next_valve,
-            "Cannot jump to the same valve"
-        );
-        assert!(!self.open.contains(next_valve), "Cannot open valve twice");
-        let arrival_time =
-            self.minute[player] + puzzle.shortest_paths[&(self.valve[player], next_valve)];
+    /// Projects a this double-state (StateB) onto the earlier of the two states.
+    fn extract_earlier_state(&self) -> StateA {
+        #[allow(clippy::obfuscated_if_else)]
+        let player = (self.minute[0] < self.minute[1]).then_some(0).unwrap_or(1);
+        StateA {
+            minute: self.minute[player],
+            valve: self.valve[player],
+            score: self.score,
+            open: self.open.clone(),
+        }
+    }
+
+    /// Overwrites the earlier of the two states with the given state.
+    fn overwrite_earlier_state(&self, state: StateA) -> StateB {
+        #[allow(clippy::obfuscated_if_else)]
+        let player = (self.minute[0] < self.minute[1]).then_some(0).unwrap_or(1);
         let (mut minute, mut valve) = (self.minute, self.valve);
-        minute[player] = arrival_time + 1;
-        valve[player] = next_valve;
-        let mut open = self.open.clone();
-        open.insert(next_valve);
+        minute[player] = state.minute;
+        valve[player] = state.valve;
         StateB {
             minute,
             valve,
-            score: self.score + puzzle.flow_rates[next_valve] * (26 - arrival_time),
-            open,
+            score: state.score,
+            open: state.open,
         }
     }
 }
@@ -248,21 +260,12 @@ impl StateB {
 impl State for StateB {
     /// Returns vector of all possible next states.
     fn next_states(&self, puzzle: &Puzzle) -> Vec<Self> {
-        #[allow(clippy::obfuscated_if_else)]
-        let player = (self.minute[0] < self.minute[1]).then_some(0).unwrap_or(1);
-
-        puzzle
-            .flow_rates
-            .keys()
-            .filter(|&&v| {
-                (v != self.valve[player])         // Don't move back to your own valve.
-                    && (!self.open.contains(v))   // Move only to closed valves.
-                    && (puzzle.flow_rates[v] > 0) // Don't bother opening valves with no flow
-                    && (v != "KZ" || player == 0) // Distinguish between players 0 and 1
-            })
-            .map(|&v| self.jump_to_and_open(player, v, puzzle))
-            .filter(|s| s.minute[player] <= 26)
-            .collect_vec()
+        let state = self.extract_earlier_state();
+        state
+            .next_states(puzzle)
+            .into_iter()
+            .map(|s| self.overwrite_earlier_state(s))
+            .collect()
     }
 
     /// What is the current score accrued at this state.
@@ -272,13 +275,6 @@ impl State for StateB {
 
     /// An overestimate of the score that can be achieved from this state.
     fn best_potential_score(&self, puzzle: &Puzzle) -> usize {
-        let min_minute = self.minute[0].min(self.minute[1]);
-        self.score
-            + puzzle
-                .flow_rates
-                .keys()
-                .filter(|&&v| !self.open.contains(v))
-                .map(|&v| puzzle.flow_rates[v] * (26 - min_minute))
-                .sum::<usize>()
+        self.extract_earlier_state().best_potential_score(puzzle)
     }
 }
