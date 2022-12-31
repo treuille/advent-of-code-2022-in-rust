@@ -121,11 +121,9 @@ impl Puzzle {
     }
 }
 
-trait State: Clone {
+trait State: Sized + Clone {
     /// Returns vector of all possible next states.
-    fn next_states(&self, puzzle: &Puzzle) -> Vec<Self>
-    where
-        Self: Sized;
+    fn next_states(&self, puzzle: &Puzzle) -> Vec<Self>;
 
     /// What is the current score accrued at this state.
     fn score(&self) -> usize;
@@ -134,10 +132,7 @@ trait State: Clone {
     fn best_potential_score(&self, puzzle: &Puzzle) -> usize;
 
     /// Finds the larger state by score.
-    fn max(s1: Option<Self>, s2: Option<Self>) -> Option<Self>
-    where
-        Self: Sized,
-    {
+    fn max(s1: Option<Self>, s2: Option<Self>) -> Option<Self> {
         match (s1, s2) {
             (Some(s1), Some(s2)) if s1.score() > s2.score() => Some(s1),
             (Some(_), Some(s2)) => Some(s2),
@@ -148,7 +143,7 @@ trait State: Clone {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct StateA {
     minute: usize,
     valve: StaticStr,
@@ -181,10 +176,7 @@ impl StateA {
 
 impl State for StateA {
     /// Returns vector of all possible next states.
-    fn next_states(&self, puzzle: &Puzzle) -> Vec<Self>
-    where
-        Self: Sized,
-    {
+    fn next_states(&self, puzzle: &Puzzle) -> Vec<Self> {
         puzzle
             .flow_rates
             .keys()
@@ -213,7 +205,7 @@ impl State for StateA {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct StateB {
     minute: [usize; 2],
     valve: [StaticStr; 2],
@@ -255,10 +247,7 @@ impl StateB {
 
 impl State for StateB {
     /// Returns vector of all possible next states.
-    fn next_states(&self, puzzle: &Puzzle) -> Vec<Self>
-    where
-        Self: Sized,
-    {
+    fn next_states(&self, puzzle: &Puzzle) -> Vec<Self> {
         #[allow(clippy::obfuscated_if_else)]
         let player = (self.minute[0] < self.minute[1]).then_some(0).unwrap_or(1);
 
