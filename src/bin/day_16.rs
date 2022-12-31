@@ -259,10 +259,7 @@ impl State for StateB {
     where
         Self: Sized,
     {
-        // let player = match self.minute[0] < self.minute[1] {
-        //     true => 0,
-        //     false => 1,
-        // };
+        #[allow(clippy::obfuscated_if_else)]
         let player = (self.minute[0] < self.minute[1]).then_some(0).unwrap_or(1);
 
         puzzle
