@@ -206,7 +206,11 @@ impl State for StateA {
                 .flow_rates
                 .iter()
                 .filter(|(&valve, &flow_rate)| !self.open.contains(valve) && flow_rate > 0)
-                .map(|(_, flow_rate)| flow_rate * (puzzle.total_minutes - self.minute))
+                .filter_map(|(valve, flow_rate)| {
+                    let arrival_time = self.minute + puzzle.shortest_paths[&(self.valve, *valve)];
+                    (arrival_time < puzzle.total_minutes)
+                        .then(|| flow_rate * (puzzle.total_minutes - arrival_time))
+                })
                 .sum::<usize>()
     }
 }
