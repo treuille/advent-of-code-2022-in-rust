@@ -204,9 +204,9 @@ impl State for StateA {
         self.score
             + puzzle
                 .flow_rates
-                .keys()
-                .filter(|&&v| !self.open.contains(v))
-                .map(|&v| puzzle.flow_rates[v] * (puzzle.total_minutes - self.minute))
+                .iter()
+                .filter(|(&valve, &flow_rate)| !self.open.contains(valve) && flow_rate > 0)
+                .map(|(_, flow_rate)| flow_rate * (puzzle.total_minutes - self.minute))
                 .sum::<usize>()
     }
 }
