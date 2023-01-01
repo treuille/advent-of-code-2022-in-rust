@@ -8,13 +8,13 @@ fn main() {
     let mut puzzle = Puzzle::from_str(input);
 
     println!(
-        "day 15a: {} (1638)",
+        "day 16a: {} (1638)",
         puzzle.solve(StateA::new(), &None).unwrap().score
     );
 
     puzzle.total_minutes = 26;
     println!(
-        "day 15b: {} (2400)",
+        "day 16b: {} (2400)",
         puzzle.solve(StateB::new(), &None).unwrap().score
     );
 }
