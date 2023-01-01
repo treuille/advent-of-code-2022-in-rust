@@ -3,6 +3,9 @@ use itertools::Itertools;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 
+/// Basic idea is to do a depth-first exuastive search through the tunnels. To prune the search, we
+/// track the best solution so far, and use .best_potential_score() to prune paths which cannot
+/// beat it.
 fn main() {
     let input = include_str!("../../puzzle_inputs/day_16.txt");
     let mut puzzle = Puzzle::from_str(input);
@@ -19,19 +22,19 @@ fn main() {
     );
 }
 
-type StaticStr = &'static str;
+type Valve = &'static str;
 
 struct Puzzle {
-    flow_rates: HashMap<StaticStr, usize>,
-    shortest_paths: HashMap<(StaticStr, StaticStr), usize>,
+    flow_rates: HashMap<Valve, usize>,
+    shortest_paths: HashMap<(Valve, Valve), usize>,
     total_minutes: usize,
 }
 
 impl Puzzle {
-    fn from_str(input: StaticStr) -> Self {
+    fn from_str(input: &'static str) -> Self {
         // Parse out the flow rates and tunnels
-        let flow_rates: HashMap<StaticStr, usize>;
-        let tunnels: HashMap<StaticStr, Vec<StaticStr>>;
+        let flow_rates: HashMap<Valve, usize>;
+        let tunnels: HashMap<Valve, Vec<Valve>>;
         let re = Regex::new(r"Valve (\w+) has flow rate=(\d+); tunnels? leads? to valves? (.*)")
             .unwrap();
         (flow_rates, tunnels) = parse_lines(re, input.trim())
@@ -42,7 +45,7 @@ impl Puzzle {
             .unzip();
 
         // Calculate shortest paths among all valves with breadth-first search
-        let mut shortest_paths: HashMap<(StaticStr, StaticStr), usize> = HashMap::new();
+        let mut shortest_paths: HashMap<(Valve, Valve), usize> = HashMap::new();
         for (&valve_1, adjacent_valves) in tunnels.iter() {
             let mut valves_to_process = adjacent_valves.clone();
             for dist in 1.. {
@@ -110,9 +113,9 @@ trait State: Sized + Clone {
 #[derive(Clone)]
 struct StateA {
     minute: usize,
-    valve: StaticStr,
+    valve: Valve,
     score: usize,
-    open: HashSet<StaticStr>,
+    open: HashSet<Valve>,
 }
 
 impl StateA {
@@ -125,16 +128,16 @@ impl StateA {
         }
     }
 
-    fn move_to_and_open(&self, next_valve: StaticStr, puzzle: &Puzzle) -> StateA {
+    fn move_to_and_open(&self, next_valve: Valve, puzzle: &Puzzle) -> StateA {
         let arrival_time = self.minute + puzzle.shortest_paths[&(self.valve, next_valve)];
-        let mut also_open_next_valve = self.open.clone();
-        also_open_next_valve.insert(next_valve);
+        let mut open_including_next_valve = self.open.clone();
+        open_including_next_valve.insert(next_valve);
         StateA {
             minute: arrival_time + 1,
             valve: next_valve,
             score: self.score
                 + puzzle.flow_rates[next_valve] * (puzzle.total_minutes - arrival_time),
-            open: also_open_next_valve,
+            open: open_including_next_valve,
         }
     }
 }
@@ -145,9 +148,7 @@ impl State for StateA {
         puzzle
             .flow_rates
             .iter()
-            .filter(|(&v, &flow_rate)| {
-                (v != self.valve) && !self.open.contains(v) && (flow_rate > 0)
-            })
+            .filter(|(&v, &flow_rate)| (flow_rate > 0) && !self.open.contains(v))
             .map(|(&v, _)| self.move_to_and_open(v, puzzle))
             .filter(|s| s.minute <= puzzle.total_minutes)
             .collect_vec()
@@ -177,9 +178,9 @@ impl State for StateA {
 #[derive(Clone)]
 struct StateB {
     minute: [usize; 2],
-    valve: [StaticStr; 2],
+    valve: [Valve; 2],
     score: usize,
-    open: HashSet<StaticStr>,
+    open: HashSet<Valve>,
 }
 
 impl StateB {
