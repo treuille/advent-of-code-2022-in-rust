@@ -41,73 +41,34 @@ impl Puzzle {
             })
             .unzip();
 
+        // Calculate shortest paths among all valves with breadth-first search
+        let mut shortest_paths: HashMap<(StaticStr, StaticStr), usize> = HashMap::new();
+        for (&valve_1, adjacent_valves) in tunnels.iter() {
+            let mut valves_to_process = adjacent_valves.clone();
+            for dist in 1.. {
+                if valves_to_process.is_empty() {
+                    break;
+                }
+                for &valve_2 in valves_to_process.iter() {
+                    shortest_paths.insert((valve_1, valve_2), dist);
+                }
+                valves_to_process = valves_to_process
+                    .into_iter()
+                    .flat_map(|valve_2| tunnels.get(valve_2).unwrap())
+                    .filter(|&valve_2| !shortest_paths.contains_key(&(valve_1, valve_2)))
+                    .copied()
+                    .collect();
+            }
+        }
+
         Puzzle {
             flow_rates,
-            shortest_paths: Puzzle::shortest_paths(&tunnels),
+            shortest_paths,
             total_minutes: 30,
         }
     }
 
-    /// Compute the all-pairs shortest paths among the valves.
-    fn shortest_paths(
-        tunnels: &HashMap<StaticStr, Vec<StaticStr>>,
-    ) -> HashMap<(StaticStr, StaticStr), usize> {
-        let valves = tunnels.keys().cloned().collect_vec();
-
-        // Let's put in all single links.
-        let mut shortest_paths: HashMap<(StaticStr, StaticStr), usize> = tunnels
-            .iter()
-            .flat_map(|(valve, tunnels)| {
-                tunnels.iter().map(|next_valve| ((*valve, *next_valve), 1))
-            })
-            .collect();
-
-        for i in 0..valves.len() {
-            let valve_1 = valves[i];
-            for valve_2 in valves[0..i].iter().copied() {
-                // Hook up valve_1 to everything, even indirectly
-                if !shortest_paths.contains_key(&(valve_1, valve_2)) {
-                    let min_path = valves[0..i]
-                        .iter()
-                        .copied()
-                        .filter_map(|valve_3| {
-                            shortest_paths.get(&(valve_1, valve_3)).and_then(|&dist_1| {
-                                shortest_paths
-                                    .get(&(valve_3, valve_2))
-                                    .map(|&dist_2| dist_1 + dist_2)
-                            })
-                        })
-                        .min();
-                    if let Some(min_path) = min_path {
-                        shortest_paths.insert((valve_1, valve_2), min_path);
-                        shortest_paths.insert((valve_2, valve_1), min_path);
-                    }
-                }
-
-                // Check to see if there are any other shorter paths to be found.
-                for valve_3 in valves[0..i].iter().copied() {
-                    if let Some(&dist_1) = shortest_paths.get(&(valve_2, valve_1)) {
-                        if let Some(&dist_2) = shortest_paths.get(&(valve_1, valve_3)) {
-                            let dist_3 = dist_1 + dist_2;
-                            if let Some(&dist_4) = shortest_paths.get(&(valve_2, valve_3)) {
-                                if dist_3 < dist_4 {
-                                    shortest_paths.insert((valve_2, valve_3), dist_3);
-                                    shortest_paths.insert((valve_3, valve_2), dist_3);
-                                }
-                            } else {
-                                shortest_paths.insert((valve_2, valve_3), dist_3);
-                                shortest_paths.insert((valve_3, valve_2), dist_3);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        shortest_paths
-    }
-
-    /// Returns the best possible flow achievable from `valve` starting at `minute`,
-    /// assuming we've already scored a flow of `score`.
+    /// Returns either the best possible flow starting from `state`, or `best_state` if it's better.
     fn solve<S: State>(&self, state: S, best_state: &Option<S>) -> Option<S> {
         if let Some(best_state) = best_state {
             if best_state.score() > state.best_potential_score(self) {
@@ -164,9 +125,7 @@ impl StateA {
         }
     }
 
-    fn jump_to_and_open(&self, next_valve: StaticStr, puzzle: &Puzzle) -> StateA {
-        assert!(self.valve != next_valve, "Cannot jump to the same valve");
-        assert!(!self.open.contains(next_valve), "Cannot open valve twice");
+    fn move_to_and_open(&self, next_valve: StaticStr, puzzle: &Puzzle) -> StateA {
         let arrival_time = self.minute + puzzle.shortest_paths[&(self.valve, next_valve)];
         let mut also_open_next_valve = self.open.clone();
         also_open_next_valve.insert(next_valve);
@@ -185,11 +144,11 @@ impl State for StateA {
     fn next_states(&self, puzzle: &Puzzle) -> Vec<Self> {
         puzzle
             .flow_rates
-            .keys()
-            .filter(|&&v| {
-                (v != self.valve) && (!self.open.contains(v)) && (puzzle.flow_rates[v] > 0)
+            .iter()
+            .filter(|(&v, &flow_rate)| {
+                (v != self.valve) && !self.open.contains(v) && (flow_rate > 0)
             })
-            .map(|&v| self.jump_to_and_open(v, puzzle))
+            .map(|(&v, _)| self.move_to_and_open(v, puzzle))
             .filter(|s| s.minute <= puzzle.total_minutes)
             .collect_vec()
     }
@@ -264,8 +223,7 @@ impl StateB {
 impl State for StateB {
     /// Returns vector of all possible next states.
     fn next_states(&self, puzzle: &Puzzle) -> Vec<Self> {
-        let state = self.extract_earlier_state();
-        state
+        self.extract_earlier_state()
             .next_states(puzzle)
             .into_iter()
             .map(|s| self.overwrite_earlier_state(s))
