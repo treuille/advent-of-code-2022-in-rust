@@ -91,15 +91,6 @@ trait State: Sized + Clone {
 
     /// An overestimate of the score that can be achieved from this state.
     fn best_potential_score(&self, puzzle: &Puzzle) -> usize;
-
-    /// Finds the larger state by score.
-    fn max(s1: Self, s2: Self) -> Self {
-        if s1.score() > s2.score() {
-            s1
-        } else {
-            s2
-        }
-    }
 }
 
 /// State for part A: one individual is moving through the tunnels.
