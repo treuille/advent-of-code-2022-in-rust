@@ -12,16 +12,10 @@ fn main() {
     let input = include_str!("../../puzzle_inputs/day_16.txt");
     let mut puzzle = Puzzle::from_str(input);
 
-    println!(
-        "day 16a: {} (1638)",
-        puzzle.solve(StateA::new(), &StateA::new()).score
-    );
+    println!("day 16a: {} (1638)", puzzle.solve(StateA::new(), 0));
 
     puzzle.total_minutes = 26;
-    println!(
-        "day 16b: {} (2400)",
-        puzzle.solve(StateB::new(), &StateB::new()).score
-    );
+    println!("day 16b: {} (2400)", puzzle.solve(StateB::new(), 0));
 }
 
 type Valve = &'static str;
@@ -73,20 +67,18 @@ impl Puzzle {
         }
     }
 
-    /// Returns either the best possible flow starting from `state`, or `best_state` if it's better.
-    fn solve<S: State>(&self, state: S, best_state: &S) -> S {
-        // These next three lines are the key to efficient search, pruning paths which cannot beat
-        // `best_state`.
-        if best_state.score() > state.best_potential_score(self) {
-            return best_state.clone();
+    /// Returns either the best possible score starting from `state`, or `best_score` if it's better.
+    fn solve<S: State>(&self, state: S, mut best_score: usize) -> usize {
+        // This if statement is the key to efficient search, pruning paths which cannot beat
+        // `best_score`.
+        if best_score < state.best_potential_score(self) {
+            best_score = best_score.max(state.score());
+            for next_state in state.next_states(self) {
+                let potentially_better_score = self.solve(next_state, best_score);
+                best_score = best_score.max(potentially_better_score);
+            }
         }
-
-        let mut best_state = State::max(state.clone(), best_state.clone());
-        for next_state in state.next_states(self) {
-            let potential_best_state = self.solve(next_state.clone(), &best_state);
-            best_state = State::max(potential_best_state, best_state);
-        }
-        best_state
+        best_score
     }
 }
 
