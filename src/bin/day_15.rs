@@ -50,6 +50,11 @@ fn solve_a(sensor_balls: &UVRects, beacons: &[Pt], y_to_check: i64) -> usize {
         .count()
 }
 
+/// Unlike other AOC participants, I didn't figure out the trick that you need only search a
+/// one-cell-thick layer outside the L1 balls around each sensor. Therefore, I had to find another
+/// efficient solution. What I did was to convert into an u-v coordinate system which rotates axes
+/// x-y by 45 degrees. Then the L1 balls become squares which can be subracted from one other to
+/// efficiently rule out potential solutions until we get to a single solution.
 fn solve_b(sensor_balls: &UVRects, limit_area: i64) -> i64 {
     let limit_center = (limit_area / 2, limit_area / 2);
     let potential_solns = UVRect::from_pt_and_dist(limit_center, limit_area);
