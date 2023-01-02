@@ -3,31 +3,33 @@ use itertools::Itertools;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 
-/// Basic idea is to do a depth-first exuastive search through the tunnels. To prune the search, we
-/// track the best solution so far, and use .best_potential_score() to prune paths which cannot
-/// beat it.
+/// Basic idea is to do a depth-first exuastive search through the state space. To make this search
+/// feasible, we use the .best_potential_score() method to prune paths which cannot possibly beat
+/// the best solution found so far. This lets us solve the problem in <300ms even without
+/// memoization. Parts A and B are solved identically but for the state definition: StateA tracks
+/// one individual through the tunnels, while StateB tracks two simultaneously.
 fn main() {
     let input = include_str!("../../puzzle_inputs/day_16.txt");
     let mut puzzle = Puzzle::from_str(input);
 
     println!(
         "day 16a: {} (1638)",
-        puzzle.solve(StateA::new(), &None).unwrap().score
+        puzzle.solve(StateA::new(), &StateA::new()).score
     );
 
     puzzle.total_minutes = 26;
     println!(
         "day 16b: {} (2400)",
-        puzzle.solve(StateB::new(), &None).unwrap().score
+        puzzle.solve(StateB::new(), &StateB::new()).score
     );
 }
 
 type Valve = &'static str;
 
 struct Puzzle {
+    total_minutes: usize,
     flow_rates: HashMap<Valve, usize>,
     shortest_paths: HashMap<(Valve, Valve), usize>,
-    total_minutes: usize,
 }
 
 impl Puzzle {
@@ -72,17 +74,17 @@ impl Puzzle {
     }
 
     /// Returns either the best possible flow starting from `state`, or `best_state` if it's better.
-    fn solve<S: State>(&self, state: S, best_state: &Option<S>) -> Option<S> {
-        if let Some(best_state) = best_state {
-            if best_state.score() > state.best_potential_score(self) {
-                return Some(best_state.clone());
-            }
+    fn solve<S: State>(&self, state: S, best_state: &S) -> S {
+        // These next three lines are the key to efficient search, pruning paths which cannot beat
+        // `best_state`.
+        if best_state.score() > state.best_potential_score(self) {
+            return best_state.clone();
         }
 
-        let mut best_state = State::max(Some(state.clone()), best_state.clone());
+        let mut best_state = State::max(state.clone(), best_state.clone());
         for next_state in state.next_states(self) {
-            let next_best_state = self.solve(next_state.clone(), &best_state);
-            best_state = State::max(next_best_state, best_state);
+            let potential_best_state = self.solve(next_state.clone(), &best_state);
+            best_state = State::max(potential_best_state, best_state);
         }
         best_state
     }
@@ -99,17 +101,16 @@ trait State: Sized + Clone {
     fn best_potential_score(&self, puzzle: &Puzzle) -> usize;
 
     /// Finds the larger state by score.
-    fn max(s1: Option<Self>, s2: Option<Self>) -> Option<Self> {
-        match (s1, s2) {
-            (Some(s1), Some(s2)) if s1.score() > s2.score() => Some(s1),
-            (Some(_), Some(s2)) => Some(s2),
-            (Some(s1), None) => Some(s1),
-            (None, Some(s2)) => Some(s2),
-            (None, None) => None,
+    fn max(s1: Self, s2: Self) -> Self {
+        if s1.score() > s2.score() {
+            s1
+        } else {
+            s2
         }
     }
 }
 
+/// State for part A: one individual is moving through the tunnels.
 #[derive(Clone)]
 struct StateA {
     minute: usize,
@@ -175,6 +176,7 @@ impl State for StateA {
     }
 }
 
+/// State for part B: tracks two individuals, each with thier own time.
 #[derive(Clone)]
 struct StateB {
     minute: [usize; 2],
