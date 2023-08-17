@@ -4,7 +4,7 @@ fn main() {
     let input = include_str!("../../puzzle_inputs/day_06.txt");
     let input: Vec<char> = input.chars().collect();
     println!("day 6a: {} (1235)", solve(&input, 4));
-    println!("day 6b: {} (3501)", solve(&input, 14));
+    println!("day 6b: {} (3051)", solve(&input, 14));
 }
 
 fn solve(input: &[char], window_len: usize) -> usize {
