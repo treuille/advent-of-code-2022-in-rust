@@ -3,7 +3,7 @@ use itertools::Itertools;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 
-/// Basic idea is to do a depth-first exuastive search through the state space. To make this search
+/// Basic idea is to do a depth-first exhaustive search through the state space. To make this search
 /// feasible, we use the .best_potential_score() method to prune paths which cannot possibly beat
 /// the best solution found so far. This lets us solve the problem in <300ms even without
 /// memoization. Parts A and B are solved identically but for the state definition: StateA tracks
